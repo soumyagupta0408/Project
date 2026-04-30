@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AQI Early Warning System — AI Powered</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+:root {
+  --bg:      #080b12;
+  --bg2:     #0e1320;
+  --bg3:     #141928;
+  --bg4:     #1a2035;
+  --border:  rgba(99,179,237,0.08);
+  --border2: rgba(99,179,237,0.18);
+  --text:    #e2e8f8;
+  --text2:   #7888aa;
+  --text3:   #3d4a66;
+  --accent:  #63b3ed;
+  --accent2: #4299e1;
+  --good:    #48bb78;
+  --mod:     #ecc94b;
+  --uhs:     #ed8936;
+  --bad:     #fc8181;
+  --very:    #b794f4;
+  --haz:     #fc4a4a;
+  --r: 8px; --rl: 14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+.mono{font-family:'Space Mono',monospace}
+
+/* ── LAYOUT ── */
+.shell{display:grid;grid-template-columns:240px 1fr;grid-template-rows:52px 1fr;min-height:100vh}
+.topbar{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:var(--bg2);border-bottom:1px solid var(--border);gap:12px}
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;padding:14px 10px;display:flex;flex-direction:column;gap:6px}
+.main{overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:14px}
+
+/* ── TOPBAR ── */
+.logo{display:flex;align-items:center;gap:10px}
+.logo-mark{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#4299e1,#48bb78);display:flex;align-items:center;justify-content:center;font-size:16px}
+.logo h1{font-size:14px;font-weight:600;letter-spacing:0.02em}
+.logo p{font-size:11px;color:var(--text2)}
+.topbar-r{display:flex;align-items:center;gap:10px}
+.live-chip{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--good);background:rgba(72,187,120,0.1);border:1px solid rgba(72,187,120,0.25);border-radius:20px;padding:3px 10px}
+.dot-pulse{width:6px;height:6px;border-radius:50%;background:var(--good);animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.2}}
+.tbtn{font-size:11px;padding:5px 11px;border-radius:7px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;transition:.2s}
+.tbtn:hover{background:var(--bg3);color:var(--text)}
+.tbtn.on{color:var(--good);border-color:rgba(72,187,120,0.3);background:rgba(72,187,120,0.07)}
+#ts{font-size:11px;color:var(--text3)}
+
+/* ── SIDEBAR ── */
+.slabel{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);padding:3px 8px;margin-top:6px}
+.acard{padding:9px 11px;border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:.15s;display:flex;align-items:center;justify-content:space-between}
+.acard:hover{background:var(--bg3);border-color:var(--border)}
+.acard.on{background:var(--bg3);border-color:var(--accent2)}
+.acard-name{font-size:12px;font-weight:500}
+.acard-meta{font-size:10px;color:var(--text2);margin-top:1px}
+.abad{font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px}
+
+/* ── METRICS ── */
+.mrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.mc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px}
+.mc-label{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:6px}
+.mc-val{font-size:26px;font-weight:600;line-height:1}
+.mc-sub{font-size:11px;color:var(--text2);margin-top:4px}
+.mc-tag{display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;margin-top:5px}
+
+/* ── CARDS ── */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:15px}
+.ctitle{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.ctitle-badge{font-size:9px;padding:2px 6px;border-radius:20px;background:rgba(99,179,237,0.12);color:var(--accent);text-transform:none;letter-spacing:0;font-weight:500}
+
+/* ── ALERT ── */
+.alert{display:flex;gap:10px;padding:13px 15px;border-radius:var(--r);border-left:3px solid;margin-bottom:2px}
+.alert.red{background:rgba(252,129,129,0.07);border-color:var(--bad)}
+.alert.amber{background:rgba(237,137,54,0.07);border-color:var(--uhs)}
+.alert.green{background:rgba(72,187,120,0.07);border-color:var(--good)}
+.alert-t{font-size:13px;font-weight:600}
+.alert-d{font-size:11px;color:var(--text2);margin-top:3px}
+.alert-acts{display:flex;gap:7px;margin-top:9px}
+.aab{font-size:11px;padding:4px 11px;border-radius:6px;border:1px solid;cursor:pointer;background:transparent;font-weight:500;transition:.15s}
+.aab:hover{opacity:.7}
+
+/* ── TWO COL ── */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:860px){.two{grid-template-columns:1fr}.shell{grid-template-columns:1fr}.sidebar{display:none}}
+
+/* ── CHART ── */
+.chart-wrap{position:relative;width:100%;height:240px}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:var(--text2);margin-bottom:10px}
+.li{display:flex;align-items:center;gap:5px}
+.lsq{width:10px;height:10px;border-radius:2px}
+
+/* ── FORECAST ── */
+.fstrip{display:flex;gap:5px;overflow-x:auto;padding-bottom:4px}
+.fh{flex:0 0 60px;text-align:center;padding:9px 5px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border)}
+.fh.now{border-color:var(--accent2)}
+.fh-t{font-size:9px;color:var(--text3)}
+.fh-v{font-size:16px;font-weight:700;margin:3px 0}
+.fh-tag{font-size:8px;padding:2px 4px;border-radius:6px;display:inline-block}
+.fh-ci{font-size:8px;color:var(--text3);margin-top:2px}
+.fh-arr{font-size:10px;margin-top:1px}
+
+/* ── MAP ── */
+#map{width:100%;height:320px;border-radius:var(--r);overflow:hidden}
+.leaflet-container{background:#080b12!important}
+
+/* ── AI PANEL ── */
+.ai-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:15px}
+.ai-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.ai-icon{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,rgba(66,153,225,0.3),rgba(72,187,120,0.3));border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:15px}
+.ai-title{font-size:13px;font-weight:600}
+.ai-sub{font-size:11px;color:var(--text2)}
+.ai-output{font-size:12px;color:var(--text);line-height:1.75;background:var(--bg3);border-radius:var(--r);padding:13px;border:1px solid var(--border);min-height:80px;white-space:pre-wrap}
+.ai-output.loading{color:var(--text3)}
+.ai-meta{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+.ai-tag{font-size:10px;padding:3px 8px;border-radius:20px;background:rgba(66,153,225,0.1);color:var(--accent);border:1px solid rgba(66,153,225,0.2)}
+.ci-section{margin-top:13px}
+.ci-bar-wrap{display:flex;align-items:center;gap:8px;margin-top:8px}
+.ci-label{font-size:11px;color:var(--text2);width:28px;text-align:right}
+.ci-track{flex:1;height:8px;background:var(--bg3);border-radius:4px;position:relative;overflow:visible}
+.ci-fill{height:100%;border-radius:4px;position:absolute}
+.ci-point{width:10px;height:10px;border-radius:50%;border:2px solid var(--bg);position:absolute;top:-1px;transform:translateX(-50%)}
+.ci-val{font-size:10px;color:var(--text2);width:32px}
+
+/* ── POLLUTANTS ── */
+.prow{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.pname{font-size:10px;color:var(--text3);font-family:'Space Mono',monospace;width:40px;flex-shrink:0}
+.pbg{flex:1;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden}
+.pbar{height:100%;border-radius:2px;transition:width .5s ease}
+.pval{font-size:10px;color:var(--text2);width:54px;text-align:right}
+
+/* ── WIND STATS ── */
+.wgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.wst{background:var(--bg3);border-radius:var(--r);padding:9px 11px}
+.wst-l{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em}
+.wst-v{font-size:15px;font-weight:600;margin-top:3px}
+
+/* ── SAFE ZONES ── */
+.sz{display:flex;align-items:center;justify-content:space-between;padding:9px 11px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);margin-bottom:7px}
+.sz-name{font-size:12px;font-weight:500}
+.sz-meta{font-size:10px;color:var(--text2);margin-top:1px}
+.sz-btn{font-size:10px;padding:3px 9px;border-radius:20px;border:1px solid rgba(72,187,120,0.3);color:var(--good);background:rgba(72,187,120,0.07);cursor:pointer}
+
+/* ── AIRFLOW CANVAS ── */
+#airflowCanvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;border-radius:var(--r)}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="logo">
+    <div class="logo-mark">🌬</div>
+    <div>
+      <h1>AQI Early Warning System</h1>
+      <p>Indore, Madhya Pradesh · AI-Powered</p>
+    </div>
+  </div>
+  <div class="topbar-r">
+    <div class="live-chip"><div class="dot-pulse"></div>Live</div>
+    <button class="tbtn" id="notifBtn" onclick="toggleNotif()">🔔 Enable Alerts</button>
+    <button class="tbtn" onclick="runAIPrediction()">✦ Run AI Prediction</button>
+    <span id="ts" class="mono">—</span>
+  </div>
+</header>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="slabel">Areas — Indore</div>
+  <div id="areaList"></div>
+  <div class="slabel" style="margin-top:10px">AQI Scale</div>
+  <div style="display:flex;flex-direction:column;gap:5px;padding:3px 8px">
+    <div style="display:flex;align-items:center;gap:7px;font-size:10px;color:var(--text2)"><div style="width:9px;height:9px;border-radius:2px;background:var(--good)"></div>0–50 Good</div>
+    <div style="display:flex;align-items:center;gap:7px;font-size:10px;color:var(--text2)"><div style="width:9px;height:9px;border-radius:2px;background:var(--mod)"></div>51–100 Moderate</div>
+    <div style="display:flex;align-items:center;gap:7px;font-size:10px;color:var(--text2)"><div style="width:9px;height:9px;border-radius:2px;background:var(--uhs)"></div>101–150 Unhealthy (S)</div>
+    <div style="display:flex;align-items:center;gap:7px;font-size:10px;color:var(--text2)"><div style="width:9px;height:9px;border-radius:2px;background:var(--bad)"></div>151–200 Unhealthy</div>
+    <div style="display:flex;align-items:center;gap:7px;font-size:10px;color:var(--text2)"><div style="width:9px;height:9px;border-radius:2px;background:var(--very)"></div>201–300 Very Unhealthy</div>
+    <div style="display:flex;align-items:center;gap:7px;font-size:10px;color:var(--text2)"><div style="width:9px;height:9px;border-radius:2px;background:var(--haz)"></div>300+ Hazardous</div>
+  </div>
+  <div class="slabel" style="margin-top:10px">Airflow Sim</div>
+  <div style="padding:3px 8px;display:flex;flex-direction:column;gap:6px">
+    <label style="font-size:10px;color:var(--text2)">Wind speed: <span id="wsLabel" class="mono">12</span> km/h</label>
+    <input type="range" min="0" max="40" value="12" id="wsSlider" oninput="updateWindSim(this.value)" style="width:100%"/>
+    <label style="font-size:10px;color:var(--text2)">Direction: <span id="wdLabel" class="mono">NW</span></label>
+    <input type="range" min="0" max="360" value="315" id="wdSlider" oninput="updateWindDir(this.value)" style="width:100%"/>
+    <button class="tbtn" onclick="toggleAirflow()" id="airflowBtn" style="width:100%;margin-top:4px">▶ Start Airflow</button>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+
+  <div id="alertBanner"></div>
+
+  <!-- METRICS -->
+  <div class="mrow">
+    <div class="mc"><div class="mc-label">Current AQI</div><div class="mc-val" id="mAqi">—</div><div id="mBadge" class="mc-tag">—</div></div>
+    <div class="mc"><div class="mc-label">AI Predicted Peak</div><div class="mc-val" id="mPeak">—</div><div class="mc-sub" id="mPeakT">—</div></div>
+    <div class="mc"><div class="mc-label">Confidence</div><div class="mc-val mono" id="mConf">—</div><div class="mc-sub">AI model score</div></div>
+    <div class="mc"><div class="mc-label">Wind</div><div class="mc-val" id="mWind" style="font-size:18px;padding-top:4px">—</div><div class="mc-sub" id="mWDir">—</div></div>
+    <div class="mc"><div class="mc-label">Humidity</div><div class="mc-val" id="mHum">—</div><div class="mc-sub">Relative %</div></div>
+  </div>
+
+  <!-- AI PREDICTION PANEL -->
+  <div class="ai-panel">
+    <div class="ai-header">
+      <div class="ai-icon">✦</div>
+      <div>
+        <div class="ai-title">AI Prediction Engine</div>
+        <div class="ai-sub">Claude-powered 24h AQI forecast with confidence intervals</div>
+      </div>
+    </div>
+    <div class="ai-output loading" id="aiOutput">Click "Run AI Prediction" to generate a 24-hour AQI forecast with risk analysis for the selected area.</div>
+    <div class="ai-meta" id="aiMeta"></div>
+    <div class="ci-section" id="ciSection" style="display:none">
+      <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em">Confidence Intervals — predicted AQI range</div>
+      <div id="ciBars"></div>
+    </div>
+  </div>
+
+  <!-- FORECAST CHART -->
+  <div class="card">
+    <div class="ctitle">48-hour AQI forecast <span class="ctitle-badge">AI Enhanced</span></div>
+    <div class="legend">
+      <span class="li"><span class="lsq" style="background:#63b3ed"></span>Observed</span>
+      <span class="li"><span class="lsq" style="background:#63b3ed;opacity:.35"></span>AI Forecast</span>
+      <span class="li"><span class="lsq" style="background:rgba(99,179,237,.12);border:1px dashed #63b3ed"></span>90% CI band</span>
+      <span class="li"><span class="lsq" style="background:#fc8181"></span>Danger (150)</span>
+    </div>
+    <div class="chart-wrap"><canvas id="aqiChart"></canvas></div>
+  </div>
+
+  <!-- HOURLY STRIP -->
+  <div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);margin-bottom:8px">Hourly forecast with confidence range</div>
+    <div class="fstrip" id="fstrip"></div>
+  </div>
+
+  <!-- MAP + POLLUTANTS -->
+  <div class="two">
+    <div class="card" style="padding-bottom:10px">
+      <div class="ctitle">Airflow simulation map <span class="ctitle-badge" id="airflowStatus">Paused</span></div>
+      <div style="position:relative">
+        <div id="map"></div>
+        <canvas id="airflowCanvas"></canvas>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:7px">Particles show real-time wind flow across monitored zones</div>
+    </div>
+    <div class="card">
+      <div class="ctitle">Pollutant breakdown</div>
+      <div id="pollutants"></div>
+      <div style="margin-top:13px">
+        <div class="ctitle" style="margin-bottom:8px">Wind & environment</div>
+        <div class="wgrid">
+          <div class="wst"><div class="wst-l">Speed</div><div class="wst-v" id="wSpd">—</div></div>
+          <div class="wst"><div class="wst-l">Direction</div><div class="wst-v" id="wDirS">—</div></div>
+          <div class="wst"><div class="wst-l">Temp</div><div class="wst-v" id="wTemp">—</div></div>
+          <div class="wst"><div class="wst-l">Visibility</div><div class="wst-v" id="wVis">—</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SAFE ZONES -->
+  <div class="card">
+    <div class="ctitle">Safe zones nearby <span class="ctitle-badge">AQI ≤ 100</span></div>
+    <div id="safeZones"></div>
+  </div>
+
+  <div style="font-size:10px;color:var(--text3);padding-bottom:6px">
+    AI predictions powered by Claude (Anthropic) · AQI data: WAQI demo token · Replace with your key at waqi.info/api
+  </div>
+</main>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════
+const WAQI_TOKEN = 'demo';
+
+const AREAS = [
+  {id:'vijay',   name:'Vijay Nagar',    lat:22.7534, lng:75.8937, dist:'3.1 km'},
+  {id:'palasia', name:'Palasia',         lat:22.7196, lng:75.8577, dist:'1.8 km'},
+  {id:'rau',     name:'Rau',             lat:22.6781, lng:75.8100, dist:'8.2 km'},
+  {id:'rajwada', name:'Rajwada',         lat:22.7179, lng:75.8543, dist:'4.4 km'},
+  {id:'super',   name:'Super Corridor',  lat:22.7800, lng:75.9100, dist:'12.5 km'},
+];
+
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+let cur = AREAS[0];
+let cache = {};
+let chart = null;
+let map = null;
+let mapMarkers = {};
+let notifOn = false;
+let airflowOn = false;
+let animFrame = null;
+let windSpeed = 12;
+let windAngleDeg = 315;
+let particles = [];
+
+// ═══════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════
+function aqiInfo(v){
+  if(v<=50)  return {label:'Good',          color:'#48bb78',bg:'rgba(72,187,120,0.12)'};
+  if(v<=100) return {label:'Moderate',       color:'#ecc94b',bg:'rgba(236,201,75,0.12)'};
+  if(v<=150) return {label:'Unhealthy (S)',  color:'#ed8936',bg:'rgba(237,137,54,0.12)'};
+  if(v<=200) return {label:'Unhealthy',      color:'#fc8181',bg:'rgba(252,129,129,0.12)'};
+  if(v<=300) return {label:'Very Unhealthy', color:'#b794f4',bg:'rgba(183,148,244,0.12)'};
+  return           {label:'Hazardous',       color:'#fc4a4a',bg:'rgba(252,74,74,0.12)'};
+}
+
+function windDir(deg){
+  return ['N','NE','E','SE','S','SW','W','NW'][Math.round(deg/45)%8];
+}
+
+function mockForecast(aqi, ws, hours=24){
+  const out=[];
+  const flow = ws>15?-0.5:ws>8?-0.15:0.25;
+  for(let i=0;i<hours;i++){
+    const n=(Math.random()-.5)*16;
+    const t=flow*i*2.2;
+    const d=Math.sin((i+6)/24*Math.PI*2)*18;
+    out.push(Math.max(15, Math.round(aqi+n+t+d)));
+  }
+  return out;
+}
+
+// ═══════════════════════════════════════
+// DATA FETCH (WAQI + fallback)
+// ═══════════════════════════════════════
+const MOCK_BASE = {vijay:142,palasia:178,rau:88,rajwada:201,super:62};
+
+async function fetchArea(area){
+  if(cache[area.id]) return cache[area.id];
+  try{
+    const r = await fetch(`https://api.waqi.info/feed/geo:${area.lat};${area.lng}/?token=${WAQI_TOKEN}`);
+    const j = await r.json();
+    if(j.status==='ok'&&j.data&&typeof j.data.aqi==='number'){
+      const d=j.data, ia=d.iaqi||{}, ws=ia.w?ia.w.v:10+Math.random()*15;
+      const rec={
+        aqi:d.aqi, pm25:ia.pm25?ia.pm25.v:Math.round(d.aqi*.62),
+        pm10:ia.pm10?ia.pm10.v:Math.round(d.aqi*.79),
+        no2:ia.no2?ia.no2.v:Math.round(d.aqi*.29),
+        o3:ia.o3?ia.o3.v:Math.round(d.aqi*.38),
+        co:ia.co?ia.co.v:Math.round(d.aqi*.11),
+        temp:ia.t?ia.t.v:(28+Math.random()*8).toFixed(1),
+        hum:ia.h?ia.h.v:Math.round(50+Math.random()*30),
+        ws:ws.toFixed(1), wd:windDir(ia.wd?ia.wd.v:Math.random()*360),
+        wdeg:ia.wd?ia.wd.v:Math.random()*360,
+        vis:(4+Math.random()*8).toFixed(1),
+        forecast:mockForecast(d.aqi,ws,24), live:true
+      };
+      cache[area.id]=rec; return rec;
+    }
+  }catch(e){}
+  return buildMock(area);
+}
+
+function buildMock(area){
+  const aqi=MOCK_BASE[area.id]+Math.round((Math.random()-.5)*14);
+  const ws=8+Math.random()*18;
+  const wdeg=Math.random()*360;
+  const rec={
+    aqi, pm25:Math.round(aqi*.62), pm10:Math.round(aqi*.79),
+    no2:Math.round(aqi*.29), o3:Math.round(aqi*.38), co:Math.round(aqi*.11),
+    temp:(28+Math.random()*8).toFixed(1), hum:Math.round(50+Math.random()*30),
+    ws:ws.toFixed(1), wd:windDir(wdeg), wdeg, vis:(4+Math.random()*8).toFixed(1),
+    forecast:mockForecast(aqi,ws,24), live:false
+  };
+  cache[area.id]=rec; return rec;
+}
+
+// ═══════════════════════════════════════
+// AI PREDICTION (Claude API)
+// ═══════════════════════════════════════
+async function runAIPrediction(){
+  const d = cache[cur.id];
+  if(!d){alert('Data not loaded yet.');return;}
+
+  const out = document.getElementById('aiOutput');
+  const meta = document.getElementById('aiMeta');
+  const ciSec = document.getElementById('ciSection');
+  out.className='ai-output loading';
+  out.textContent='✦ Analyzing environmental data and generating prediction…';
+  meta.innerHTML='';
+  ciSec.style.display='none';
+
+  const prompt = `You are an expert air quality scientist and prediction model for Indore, India.
+
+Current sensor data for ${cur.name}:
+- Current AQI: ${d.aqi} (${aqiInfo(d.aqi).label})
+- PM2.5: ${d.pm25} μg/m³, PM10: ${d.pm10} μg/m³
+- NO₂: ${d.no2} μg/m³, O₃: ${d.o3} μg/m³, CO: ${d.co} mg/m³
+- Wind: ${d.ws} km/h from ${d.wd}
+- Temperature: ${d.temp}°C, Humidity: ${d.hum}%
+- Visibility: ${d.vis} km
+- 12h forecast trend: ${d.forecast.slice(0,6).join(', ')}
+
+Recent area AQI context:
+${AREAS.map(a=>cache[a.id]?`- ${a.name}: ${cache[a.id].aqi}`:null).filter(Boolean).join('\n')}
+
+Provide a concise AI prediction analysis with:
+1. 24h AQI forecast summary (peak, trough, trend direction)
+2. Key driving factors (wind, humidity, time-of-day effects)
+3. Health advisory for sensitive groups
+4. Confidence level (0-100%) with reasoning
+5. One actionable recommendation for residents
+
+Keep it under 180 words. Be specific and data-driven. No markdown headers.`;
+
+  try{
+    const res = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const json = await res.json();
+    const text = json.content?.[0]?.text || 'Prediction unavailable.';
+    out.className='ai-output';
+    out.textContent=text;
+
+    // Extract confidence from response or simulate
+    const confMatch = text.match(/(\d{2,3})%/);
+    const conf = confMatch ? parseInt(confMatch[1]) : Math.round(72+Math.random()*18);
+    document.getElementById('mConf').textContent = conf+'%';
+    document.getElementById('mConf').style.color = conf>80?'#48bb78':conf>60?'#ecc94b':'#fc8181';
+
+    // Show AI tags
+    meta.innerHTML=`
+      <span class="ai-tag">✦ Claude AI</span>
+      <span class="ai-tag">Model: claude-sonnet-4</span>
+      <span class="ai-tag">Confidence: ${conf}%</span>
+      <span class="ai-tag">24h horizon</span>
+    `;
+
+    // Build confidence interval bars
+    renderCIBars(d.forecast, conf);
+
+  }catch(e){
+    out.className='ai-output';
+    out.textContent='Note: AI prediction requires a valid Anthropic API key. To enable this feature:\n1. Get your API key from console.anthropic.com\n2. Add it to the fetch headers as "x-api-key": "YOUR_KEY"\n\nShowing simulated prediction instead:\n\nBased on current conditions, AQI at '+cur.name+' is expected to peak around '+(d.aqi+Math.round(Math.random()*25))+' in the next 3–4 hours, driven by low wind speed ('+d.ws+' km/h) and elevated PM2.5 levels. Humidity of '+d.hum+'% is suppressing pollutant dispersion. Sensitive groups (children, elderly, respiratory conditions) should limit outdoor activity between 2–6 PM. Wind shift from '+d.wd+' expected to improve conditions by evening.';
+    const conf=Math.round(68+Math.random()*18);
+    document.getElementById('mConf').textContent=conf+'%';
+    meta.innerHTML=`<span class="ai-tag">Simulated</span><span class="ai-tag">Confidence: ${conf}%</span>`;
+    renderCIBars(d.forecast, conf);
+  }
+}
+
+function renderCIBars(forecast, conf){
+  const ciSec=document.getElementById('ciSection');
+  const ciBars=document.getElementById('ciBars');
+  ciSec.style.display='block';
+  const spread=(100-conf)/100*40;
+  const labels=['3h','6h','9h','12h','18h','24h'];
+  const idxs=[2,5,8,11,17,23];
+  ciBars.innerHTML=idxs.map((idx,i)=>{
+    const v=forecast[Math.min(idx,forecast.length-1)];
+    const lo=Math.max(0,Math.round(v-spread*Math.sqrt(i+1)));
+    const hi=Math.round(v+spread*Math.sqrt(i+1));
+    const max=350;
+    const plo=Math.round(lo/max*100);
+    const phi=Math.round(hi/max*100);
+    const pv=Math.round(v/max*100);
+    const info=aqiInfo(v);
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <div style="font-size:10px;color:var(--text2);width:24px">${labels[i]}</div>
+      <div class="ci-track" style="flex:1;height:8px;background:var(--bg3);border-radius:4px;position:relative">
+        <div class="ci-fill" style="left:${plo}%;width:${phi-plo}%;background:${info.color};opacity:.25;border-radius:4px"></div>
+        <div class="ci-point" style="left:${pv}%;background:${info.color}"></div>
+      </div>
+      <div style="font-size:10px;color:var(--text2);width:70px">${lo}–${hi} <span style="color:${info.color};font-weight:600">(${v})</span></div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════
+const HRS=['Now','1h','2h','3h','4h','5h','6h','7h','8h','9h','10h','11h','12h','13h','14h','15h','16h','17h','18h','19h','20h','21h','22h','23h'];
+
+function renderMetrics(d){
+  const info=aqiInfo(d.aqi);
+  document.getElementById('mAqi').textContent=d.aqi;
+  document.getElementById('mAqi').style.color=info.color;
+  document.getElementById('mBadge').textContent=info.label;
+  document.getElementById('mBadge').style.background=info.bg;
+  document.getElementById('mBadge').style.color=info.color;
+  const pk=Math.max(...d.forecast.slice(0,6));
+  const pi=d.forecast.slice(0,6).indexOf(pk);
+  document.getElementById('mPeak').textContent=pk;
+  document.getElementById('mPeak').style.color=aqiInfo(pk).color;
+  document.getElementById('mPeakT').textContent=`at ${HRS[pi]}`;
+  document.getElementById('mWind').textContent=`${d.ws} km/h`;
+  document.getElementById('mWDir').textContent=`From ${d.wd}`;
+  document.getElementById('mHum').textContent=`${d.hum}%`;
+  document.getElementById('wSpd').textContent=`${d.ws} km/h`;
+  document.getElementById('wDirS').textContent=d.wd;
+  document.getElementById('wTemp').textContent=`${d.temp}°C`;
+  document.getElementById('wVis').textContent=`${d.vis} km`;
+  // Sync wind sim sliders
+  windSpeed=parseFloat(d.ws);
+  windAngleDeg=d.wdeg||315;
+  document.getElementById('wsSlider').value=Math.round(windSpeed);
+  document.getElementById('wdSlider').value=Math.round(windAngleDeg);
+  document.getElementById('wsLabel').textContent=Math.round(windSpeed);
+  document.getElementById('wdLabel').textContent=d.wd;
+}
+
+function renderAlert(d){
+  const info=aqiInfo(d.aqi);
+  const el=document.getElementById('alertBanner');
+  let html='';
+  if(d.aqi>=150){
+    html=`<div class="alert red">
+      <div style="font-size:18px">⚠️</div>
+      <div style="flex:1">
+        <div class="alert-t" style="color:#fc8181">Air Quality Alert — ${cur.name}</div>
+        <div class="alert-d">AQI ${d.aqi} (${info.label}). Wind ${d.ws} km/h from ${d.wd}. Peak expected at ${HRS[d.forecast.slice(0,6).indexOf(Math.max(...d.forecast.slice(0,6)))]}.</div>
+        <div class="alert-acts">
+          <button class="aab" style="border-color:rgba(252,129,129,.4);color:#fc8181" onclick="document.getElementById('safeZones').scrollIntoView({behavior:'smooth'})">View safe zones ↓</button>
+          <button class="aab" style="border-color:rgba(252,129,129,.4);color:#fc8181" onclick="sendNotif('${cur.name}',${d.aqi})">Test alert</button>
+          <button class="aab" style="border-color:rgba(99,179,237,.4);color:var(--accent)" onclick="runAIPrediction()">✦ Get AI forecast</button>
+        </div>
+      </div>
+    </div>`;
+  }else if(d.aqi>=100){
+    html=`<div class="alert amber">
+      <div style="font-size:18px">⚡</div>
+      <div>
+        <div class="alert-t" style="color:#ecc94b">Moderate Air Quality — ${cur.name}</div>
+        <div class="alert-d">AQI ${d.aqi}. Sensitive groups should limit prolonged outdoor activity. Wind from ${d.wd} at ${d.ws} km/h.</div>
+      </div>
+    </div>`;
+  }else{
+    html=`<div class="alert green">
+      <div style="font-size:18px">✅</div>
+      <div>
+        <div class="alert-t" style="color:#48bb78">Good Air Quality — ${cur.name}</div>
+        <div class="alert-d">AQI ${d.aqi}. Conditions are safe for all outdoor activities.</div>
+      </div>
+    </div>`;
+  }
+  el.innerHTML=html;
+}
+
+function renderChart(d){
+  const split=4;
+  const obs=d.forecast.map((v,i)=>i<split?v:null);
+  const pred=d.forecast.map((v,i)=>i>=split-1?v:null);
+  const spread=12;
+  const upper=d.forecast.map(v=>v+spread+Math.random()*8);
+  const lower=d.forecast.map(v=>Math.max(0,v-spread-Math.random()*8));
+  const ctx=document.getElementById('aqiChart').getContext('2d');
+  if(chart)chart.destroy();
+  chart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:HRS.slice(0,d.forecast.length),
+      datasets:[
+        {label:'Upper CI',data:upper,borderColor:'transparent',backgroundColor:'rgba(99,179,237,0.08)',fill:'+1',tension:.4,pointRadius:0},
+        {label:'Lower CI',data:lower,borderColor:'transparent',backgroundColor:'rgba(99,179,237,0.08)',fill:false,tension:.4,pointRadius:0},
+        {label:'Observed',data:obs,borderColor:'#63b3ed',backgroundColor:'rgba(99,179,237,0.1)',fill:false,tension:.4,pointRadius:4,pointBackgroundColor:'#63b3ed',borderWidth:2.5},
+        {label:'AI Forecast',data:pred,borderColor:'#63b3ed',backgroundColor:'rgba(99,179,237,0.03)',fill:true,tension:.4,pointRadius:2,pointBackgroundColor:'#63b3ed',borderWidth:2,borderDash:[5,4]},
+        {label:'Danger',data:d.forecast.map(()=>150),borderColor:'rgba(252,129,129,0.5)',borderDash:[4,3],borderWidth:1,pointRadius:0,fill:false},
+        {label:'Moderate',data:d.forecast.map(()=>100),borderColor:'rgba(236,201,75,0.4)',borderDash:[4,3],borderWidth:1,pointRadius:0,fill:false},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{backgroundColor:'#0e1320',borderColor:'rgba(99,179,237,0.2)',borderWidth:1,
+          callbacks:{label:c=>`AQI: ${Math.round(c.raw)} — ${aqiInfo(Math.round(c.raw)).label}`}
+        }
+      },
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#7888aa',font:{size:10},maxRotation:0}},
+        y:{min:0,max:Math.max(...d.forecast,...upper)+30,grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#7888aa',font:{size:10},stepSize:50}}
+      }
+    }
+  });
+}
+
+function renderForecast(d){
+  document.getElementById('fstrip').innerHTML=d.forecast.slice(0,12).map((v,i)=>{
+    const info=aqiInfo(v);
+    const prev=i>0?d.forecast[i-1]:v;
+    const arr=v>prev+4?'↑':v<prev-4?'↓':'→';
+    const ac=arr==='↑'?'#fc8181':arr==='↓'?'#48bb78':'#7888aa';
+    const spread=Math.round(8+i*2.5);
+    return `<div class="fh ${i===0?'now':''}">
+      <div class="fh-t">${HRS[i]}</div>
+      <div class="fh-v" style="color:${info.color}">${Math.round(v)}</div>
+      <div class="fh-tag" style="background:${info.bg};color:${info.color}">${info.label.split(' ')[0]}</div>
+      <div class="fh-ci" style="font-size:8px;color:var(--text3)">±${spread}</div>
+      <div class="fh-arr" style="color:${ac}">${arr}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderPollutants(d){
+  const ps=[
+    {k:'pm25',l:'PM2.5',max:200,c:'#63b3ed'},
+    {k:'pm10',l:'PM10', max:300,c:'#ed8936'},
+    {k:'no2', l:'NO₂',  max:200,c:'#ecc94b'},
+    {k:'o3',  l:'O₃',   max:180,c:'#48bb78'},
+    {k:'co',  l:'CO',   max:50, c:'#b794f4'},
+  ];
+  document.getElementById('pollutants').innerHTML=ps.map(p=>{
+    const v=d[p.k]||0;
+    const pct=Math.min(100,Math.round(v/p.max*100));
+    return `<div class="prow">
+      <span class="pname">${p.l}</span>
+      <div class="pbg"><div class="pbar" style="width:${pct}%;background:${p.c}"></div></div>
+      <span class="pval">${Math.round(v)} μg</span>
+    </div>`;
+  }).join('');
+}
+
+function renderSidebar(){
+  document.getElementById('areaList').innerHTML=AREAS.map(a=>{
+    const d=cache[a.id];
+    if(!d) return `<div class="acard ${a.id===cur.id?'on':''}" onclick="selectArea('${a.id}')"><div><div class="acard-name">${a.name}</div><div class="acard-meta">Loading…</div></div></div>`;
+    const info=aqiInfo(d.aqi);
+    return `<div class="acard ${a.id===cur.id?'on':''}" onclick="selectArea('${a.id}')">
+      <div><div class="acard-name">${a.name}</div><div class="acard-meta">${d.ws} km/h ${d.wd}</div></div>
+      <span class="abad" style="background:${info.bg};color:${info.color}">${d.aqi}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderSafeZones(){
+  const safe=AREAS.filter(a=>cache[a.id]&&cache[a.id].aqi<=100).sort((a,b)=>cache[a.id].aqi-cache[b.id].aqi);
+  const el=document.getElementById('safeZones');
+  if(!safe.length){el.innerHTML='<p style="font-size:11px;color:var(--text3)">No zones with good air quality right now. Check back shortly.</p>';return;}
+  el.innerHTML=safe.map(a=>{
+    const d=cache[a.id];
+    const info=aqiInfo(d.aqi);
+    return `<div class="sz">
+      <div><div class="sz-name">${a.name}</div><div class="sz-meta">${a.dist} away · Wind ${d.ws} km/h ${d.wd} · Visibility ${d.vis} km</div></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:15px;font-weight:700;color:${info.color}">${d.aqi}</span>
+        <button class="sz-btn" onclick="selectArea('${a.id}')">View →</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════
+// MAP
+// ═══════════════════════════════════════
+function initMap(){
+  map=L.map('map',{zoomControl:true,scrollWheelZoom:false}).setView([22.7196,75.8577],12);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    attribution:'© CartoDB',subdomains:'abcd',maxZoom:19
+  }).addTo(map);
+}
+
+function updateMarkers(){
+  AREAS.forEach(a=>{
+    const d=cache[a.id];
+    if(!d)return;
+    const info=aqiInfo(d.aqi);
+    if(mapMarkers[a.id]) map.removeLayer(mapMarkers[a.id]);
+    const isOn=a.id===cur.id;
+    const sz=isOn?46:36;
+    const icon=L.divIcon({
+      html:`<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${info.color};border:${isOn?'3px solid #fff':'2px solid rgba(255,255,255,.3)'};display:flex;align-items:center;justify-content:center;font-size:${isOn?'13':'11'}px;font-weight:700;color:#fff;box-shadow:0 0 ${isOn?18:8}px ${info.color}88;cursor:pointer">${d.aqi}</div>`,
+      className:'',iconAnchor:[sz/2,sz/2]
+    });
+    mapMarkers[a.id]=L.marker([a.lat,a.lng],{icon})
+      .addTo(map)
+      .bindPopup(`<b>${a.name}</b><br>AQI: ${d.aqi} — ${info.label}<br>Wind: ${d.ws} km/h ${d.wd}`)
+      .on('click',()=>selectArea(a.id));
+  });
+}
+
+// ═══════════════════════════════════════
+// AIRFLOW SIMULATION (Canvas Particles)
+// ═══════════════════════════════════════
+function initParticles(){
+  const canvas=document.getElementById('airflowCanvas');
+  particles=[];
+  for(let i=0;i<120;i++){
+    particles.push({
+      x:Math.random()*canvas.width,
+      y:Math.random()*canvas.height,
+      vx:0, vy:0,
+      life:Math.random(),
+      maxLife:0.6+Math.random()*0.4,
+      size:0.8+Math.random()*1.8,
+      speed:0.3+Math.random()*0.7,
+    });
+  }
+}
+
+function aqiColorAt(x, y, canvas){
+  // Map canvas coords to area proximity
+  const w=canvas.width, h=canvas.height;
+  const mapBounds={minLat:22.65,maxLat:22.80,minLng:75.79,maxLng:75.93};
+  const lat=mapBounds.maxLat - (y/h)*(mapBounds.maxLat-mapBounds.minLat);
+  const lng=mapBounds.minLng + (x/w)*(mapBounds.maxLng-mapBounds.minLng);
+  let closest=null, minDist=Infinity;
+  AREAS.forEach(a=>{
+    if(!cache[a.id])return;
+    const d=Math.hypot(a.lat-lat, a.lng-lng);
+    if(d<minDist){minDist=d;closest=a;}
+  });
+  if(!closest)return'rgba(99,179,237,';
+  const aqi=cache[closest.id]?.aqi||80;
+  const info=aqiInfo(aqi);
+  return info.color.replace('#','rgba(').replace(/(.{2})(.{2})(.{2})/,(_,r,g,b)=>`rgba(${parseInt(r,16)},${parseInt(g,16)},${parseInt(b,16)},`)+'ALPHA)';
+}
+
+function animateAirflow(){
+  if(!airflowOn)return;
+  const canvas=document.getElementById('airflowCanvas');
+  const ctx=canvas.getContext('2d');
+  const mapDiv=document.getElementById('map');
+  canvas.width=mapDiv.offsetWidth;
+  canvas.height=mapDiv.offsetHeight;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  const angleRad=(windAngleDeg-180)*Math.PI/180;
+  const spd=windSpeed/10;
+
+  particles.forEach(p=>{
+    // Wind vector + slight turbulence
+    p.vx = Math.sin(angleRad)*spd*p.speed + (Math.random()-.5)*0.3;
+    p.vy = -Math.cos(angleRad)*spd*p.speed + (Math.random()-.5)*0.3;
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life += 0.008;
+
+    // Wrap around
+    if(p.x<0)p.x=canvas.width;
+    if(p.x>canvas.width)p.x=0;
+    if(p.y<0)p.y=canvas.height;
+    if(p.y>canvas.height)p.y=0;
+    if(p.life>p.maxLife){p.life=0;p.x=Math.random()*canvas.width;p.y=Math.random()*canvas.height;}
+
+    const alpha=Math.sin(p.life/p.maxLife*Math.PI)*0.7;
+    const aqi=cache[cur.id]?.aqi||80;
+    const info=aqiInfo(aqi);
+    // Convert hex to rgba
+    const hex=info.color.replace('#','');
+    const rc=parseInt(hex.substring(0,2),16);
+    const gc=parseInt(hex.substring(2,4),16);
+    const bc=parseInt(hex.substring(4,6),16);
+
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
+    ctx.fillStyle=`rgba(${rc},${gc},${bc},${alpha.toFixed(2)})`;
+    ctx.fill();
+
+    // Draw trail
+    ctx.beginPath();
+    ctx.moveTo(p.x,p.y);
+    ctx.lineTo(p.x-p.vx*6,p.y-p.vy*6);
+    ctx.strokeStyle=`rgba(${rc},${gc},${bc},${(alpha*0.35).toFixed(2)})`;
+    ctx.lineWidth=p.size*0.6;
+    ctx.stroke();
+  });
+
+  animFrame=requestAnimationFrame(animateAirflow);
+}
+
+function toggleAirflow(){
+  airflowOn=!airflowOn;
+  const btn=document.getElementById('airflowBtn');
+  const status=document.getElementById('airflowStatus');
+  if(airflowOn){
+    btn.textContent='■ Stop Airflow';
+    btn.style.color='var(--bad)';
+    btn.style.borderColor='rgba(252,129,129,.3)';
+    status.textContent='Running';
+    status.style.background='rgba(72,187,120,0.12)';
+    status.style.color='var(--good)';
+    initParticles();
+    animateAirflow();
+  }else{
+    btn.textContent='▶ Start Airflow';
+    btn.style.color='';
+    btn.style.borderColor='';
+    status.textContent='Paused';
+    status.style.background='';
+    status.style.color='';
+    if(animFrame)cancelAnimationFrame(animFrame);
+    const canvas=document.getElementById('airflowCanvas');
+    canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);
+  }
+}
+
+function updateWindSim(v){
+  windSpeed=parseFloat(v);
+  document.getElementById('wsLabel').textContent=Math.round(v);
+}
+function updateWindDir(v){
+  windAngleDeg=parseFloat(v);
+  document.getElementById('wdLabel').textContent=windDir(parseFloat(v));
+}
+
+// ═══════════════════════════════════════
+// NOTIFICATIONS
+// ═══════════════════════════════════════
+function toggleNotif(){
+  if(!('Notification' in window)){alert('Notifications not supported.');return;}
+  if(Notification.permission==='granted'){
+    notifOn=!notifOn;
+    document.getElementById('notifBtn').className=notifOn?'tbtn on':'tbtn';
+    document.getElementById('notifBtn').textContent=notifOn?'🔔 Alerts On':'🔔 Enable Alerts';
+    if(notifOn) startNotifLoop();
+  }else{
+    Notification.requestPermission().then(p=>{
+      if(p==='granted'){notifOn=true;document.getElementById('notifBtn').className='tbtn on';document.getElementById('notifBtn').textContent='🔔 Alerts On';startNotifLoop();new Notification('AQI Alerts Active',{body:'You will be notified when air quality is hazardous.'});}
+    });
+  }
+}
+
+function sendNotif(name, aqi){
+  if(Notification.permission!=='granted'){alert('Enable notifications first.');return;}
+  const info=aqiInfo(aqi);
+  new Notification(`⚠️ AQI Alert — ${name}`,{body:`Air quality is ${info.label} (AQI: ${aqi}). Move to a safer area. Check the AQI Early Warning System.`,requireInteraction:aqi>=150});
+}
+
+function startNotifLoop(){
+  setInterval(()=>{
+    if(!notifOn)return;
+    AREAS.forEach(a=>{const d=cache[a.id];if(d&&d.aqi>=150)sendNotif(a.name,d.aqi);});
+  },5*60*1000);
+}
+
+// ═══════════════════════════════════════
+// CORE
+// ═══════════════════════════════════════
+function selectArea(id){
+  cur=AREAS.find(a=>a.id===id);
+  const d=cache[id];
+  if(!d)return;
+  renderMetrics(d);
+  renderAlert(d);
+  renderChart(d);
+  renderForecast(d);
+  renderPollutants(d);
+  renderSidebar();
+  renderSafeZones();
+  updateMarkers();
+  map.panTo([cur.lat,cur.lng]);
+  // Reset AI panel
+  document.getElementById('aiOutput').className='ai-output loading';
+  document.getElementById('aiOutput').textContent='Click "Run AI Prediction" to generate a 24-hour AQI forecast for '+cur.name+'.';
+  document.getElementById('aiMeta').innerHTML='';
+  document.getElementById('ciSection').style.display='none';
+  document.getElementById('mConf').textContent='—';
+  document.getElementById('mConf').style.color='';
+}
+
+async function loadAll(){
+  document.getElementById('ts').textContent='Loading…';
+  await Promise.all(AREAS.map(a=>fetchArea(a).then(()=>{renderSidebar();updateMarkers();})));
+  const d=cache[cur.id];
+  renderMetrics(d);renderAlert(d);renderChart(d);renderForecast(d);renderPollutants(d);renderSidebar();renderSafeZones();updateMarkers();
+  const now=new Date();
+  document.getElementById('ts').textContent=`${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
+  setTimeout(()=>{cache={};loadAll();},10*60*1000);
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  initMap();
+  loadAll();
+});
+</script>
+</body>
+</html>

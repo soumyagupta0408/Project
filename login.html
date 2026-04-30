@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AQI Early Warning System — Sign Up</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:       #070a10;
+  --bg2:      #0c1018;
+  --bg3:      #111620;
+  --glass:    rgba(255,255,255,0.03);
+  --glassb:   rgba(255,255,255,0.07);
+  --border:   rgba(255,255,255,0.08);
+  --border2:  rgba(255,255,255,0.15);
+  --text:     #dde4f0;
+  --text2:    #6b7899;
+  --text3:    #323d56;
+  --good:     #34d399;
+  --accent:   #60a5fa;
+  --accent2:  #3b82f6;
+  --warn:     #fbbf24;
+  --danger:   #f87171;
+  --r:        10px;
+  --rl:       16px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+
+/* ── ANIMATED BACKGROUND ── */
+.bg-canvas{position:fixed;inset:0;z-index:0;overflow:hidden}
+.bg-canvas canvas{position:absolute;inset:0;width:100%;height:100%}
+
+/* floating AQI circles */
+.float-circle{position:absolute;border-radius:50%;filter:blur(80px);animation:floatc 20s infinite ease-in-out;pointer-events:none}
+.fc1{width:400px;height:400px;background:rgba(52,211,153,0.06);top:-80px;left:-100px;animation-delay:0s}
+.fc2{width:350px;height:350px;background:rgba(96,165,250,0.05);bottom:0;right:-80px;animation-delay:-7s}
+.fc3{width:280px;height:280px;background:rgba(251,191,36,0.04);top:40%;left:60%;animation-delay:-13s}
+@keyframes floatc{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(30px,-40px) scale(1.08)}66%{transform:translate(-20px,25px) scale(0.94)}}
+
+/* grid lines */
+.grid-lines{position:fixed;inset:0;z-index:0;background-image:linear-gradient(rgba(255,255,255,0.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.018) 1px,transparent 1px);background-size:48px 48px}
+
+/* ── LAYOUT ── */
+.shell{position:relative;z-index:1;display:grid;grid-template-columns:1fr 480px;min-height:100vh}
+@media(max-width:820px){.shell{grid-template-columns:1fr}.left-panel{display:none}}
+
+/* ── LEFT PANEL ── */
+.left-panel{display:flex;flex-direction:column;justify-content:space-between;padding:40px 48px;border-right:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#34d399,#60a5fa);display:flex;align-items:center;justify-content:center;font-size:18px}
+.brand-name{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;letter-spacing:0.01em}
+.brand-tag{font-size:11px;color:var(--text2);margin-top:1px}
+
+.left-hero{flex:1;display:flex;flex-direction:column;justify-content:center;padding:40px 0}
+.left-hero h2{font-family:'Syne',sans-serif;font-size:42px;font-weight:800;line-height:1.1;letter-spacing:-0.02em;color:var(--text)}
+.left-hero h2 span{background:linear-gradient(90deg,#34d399,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.left-hero p{font-size:15px;color:var(--text2);margin-top:20px;line-height:1.7;max-width:340px}
+
+.feature-list{display:flex;flex-direction:column;gap:14px;margin-top:36px}
+.feat{display:flex;align-items:flex-start;gap:12px}
+.feat-icon{width:34px;height:34px;border-radius:9px;background:var(--glass);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;margin-top:1px}
+.feat-title{font-size:13px;font-weight:500;color:var(--text)}
+.feat-desc{font-size:12px;color:var(--text2);margin-top:2px;line-height:1.5}
+
+.aqi-ticker{display:flex;gap:10px;margin-top:40px;flex-wrap:wrap}
+.tick{padding:6px 12px;border-radius:20px;font-family:'DM Mono',monospace;font-size:11px;border:1px solid;animation:tickpulse 3s infinite}
+.tick.g{background:rgba(52,211,153,0.08);border-color:rgba(52,211,153,0.25);color:#34d399;animation-delay:0s}
+.tick.y{background:rgba(251,191,36,0.08);border-color:rgba(251,191,36,0.25);color:#fbbf24;animation-delay:.5s}
+.tick.r{background:rgba(248,113,113,0.08);border-color:rgba(248,113,113,0.25);color:#f87171;animation-delay:1s}
+@keyframes tickpulse{0%,100%{opacity:1}50%{opacity:.6}}
+
+/* ── RIGHT PANEL (form) ── */
+.right-panel{display:flex;flex-direction:column;justify-content:center;padding:40px 44px;overflow-y:auto;background:var(--bg2)}
+
+.form-header{margin-bottom:32px}
+.form-tabs{display:flex;gap:0;background:var(--bg3);border-radius:10px;padding:3px;margin-bottom:28px;border:1px solid var(--border)}
+.ftab{flex:1;padding:8px;text-align:center;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;color:var(--text2);transition:.2s;border:none;background:transparent}
+.ftab.active{background:var(--glass);color:var(--text);border:1px solid var(--border2)}
+.form-title{font-family:'Syne',sans-serif;font-size:24px;font-weight:700;letter-spacing:-0.01em}
+.form-sub{font-size:13px;color:var(--text2);margin-top:6px}
+
+/* ── FORM FIELDS ── */
+.fields{display:flex;flex-direction:column;gap:14px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:11px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.06em}
+.field-wrap{position:relative;display:flex;align-items:center}
+.field-icon{position:absolute;left:13px;font-size:15px;pointer-events:none;z-index:1;opacity:.6}
+.field input,.field select,.field textarea{width:100%;padding:11px 12px 11px 38px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;transition:.2s;outline:none;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:var(--accent2);background:rgba(59,130,246,0.04);box-shadow:0 0 0 3px rgba(59,130,246,0.1)}
+.field input::placeholder{color:var(--text3)}
+.field input.valid{border-color:rgba(52,211,153,0.5)}
+.field input.error{border-color:rgba(248,113,113,0.5)}
+.field-hint{font-size:11px;color:var(--text3);margin-top:2px}
+.field-err{font-size:11px;color:var(--danger);margin-top:2px;display:none}
+
+/* phone prefix */
+.phone-wrap{display:flex;gap:8px}
+.prefix-sel{width:82px;flex-shrink:0;padding:11px 8px 11px 10px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:12px;font-family:'DM Mono',monospace;outline:none;cursor:pointer}
+.prefix-sel:focus{border-color:var(--accent2)}
+.phone-input-wrap{flex:1;position:relative;display:flex;align-items:center}
+
+/* address field */
+.addr-wrap{position:relative}
+.addr-wrap textarea{padding-left:38px;resize:none;height:68px;line-height:1.5}
+.addr-fetch-btn{position:absolute;right:10px;bottom:10px;font-size:10px;padding:4px 9px;border-radius:7px;border:1px solid var(--border2);background:var(--bg);color:var(--text2);cursor:pointer;transition:.2s;white-space:nowrap;font-family:'DM Sans',sans-serif}
+.addr-fetch-btn:hover{border-color:var(--accent2);color:var(--accent)}
+.addr-fetch-btn.loading{color:var(--warn);border-color:rgba(251,191,36,.3);pointer-events:none}
+.addr-fetch-btn.done{color:var(--good);border-color:rgba(52,211,153,.3)}
+.addr-status{font-size:11px;margin-top:4px;display:flex;align-items:center;gap:5px}
+
+/* password strength */
+.pw-strength{display:flex;gap:4px;margin-top:6px}
+.pw-bar{flex:1;height:3px;border-radius:2px;background:var(--bg3);transition:.3s}
+.pw-label{font-size:11px;color:var(--text3);margin-top:4px}
+
+/* checkboxes */
+.check-row{display:flex;align-items:flex-start;gap:10px;cursor:pointer}
+.check-box{width:16px;height:16px;border-radius:4px;border:1px solid var(--border2);background:var(--bg3);flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px;transition:.15s}
+.check-box.checked{background:var(--accent2);border-color:var(--accent2)}
+.check-text{font-size:12px;color:var(--text2);line-height:1.5}
+.check-text a{color:var(--accent);text-decoration:none}
+
+/* submit */
+.submit-btn{width:100%;padding:13px;border-radius:var(--r);border:none;background:linear-gradient(135deg,#3b82f6,#34d399);color:#fff;font-size:14px;font-weight:600;font-family:'Syne',sans-serif;letter-spacing:.02em;cursor:pointer;transition:.2s;position:relative;overflow:hidden;margin-top:4px}
+.submit-btn:hover{opacity:.9;transform:translateY(-1px)}
+.submit-btn:active{transform:translateY(0) scale(.99)}
+.submit-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.submit-btn .btn-shine{position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent);transform:translateX(-100%);transition:transform .5s}
+.submit-btn:hover .btn-shine{transform:translateX(100%)}
+
+.divider{display:flex;align-items:center;gap:12px;margin:4px 0}
+.divider span{font-size:11px;color:var(--text3);white-space:nowrap}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
+.oauth-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.oauth-btn{padding:10px;border-radius:var(--r);border:1px solid var(--border);background:var(--glass);color:var(--text2);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:.2s;font-family:'DM Sans',sans-serif}
+.oauth-btn:hover{border-color:var(--border2);color:var(--text);background:var(--bg3)}
+
+.form-footer{text-align:center;font-size:12px;color:var(--text2);margin-top:16px}
+.form-footer a{color:var(--accent);text-decoration:none;font-weight:500}
+
+/* ── SUCCESS SCREEN ── */
+.success-screen{display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:16px;min-height:400px}
+.success-icon{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,rgba(52,211,153,.2),rgba(96,165,250,.2));border:2px solid rgba(52,211,153,.4);display:flex;align-items:center;justify-content:center;font-size:30px;animation:popin .5s cubic-bezier(.34,1.56,.64,1)}
+@keyframes popin{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+.success-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:700}
+.success-sub{font-size:13px;color:var(--text2);max-width:300px;line-height:1.6}
+.success-info{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:14px 18px;width:100%;text-align:left;font-size:12px}
+.si-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)}
+.si-row:last-child{border:none}
+.si-k{color:var(--text2)}
+.si-v{color:var(--text);font-weight:500;font-family:'DM Mono',monospace;font-size:11px;text-align:right;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.go-btn{width:100%;padding:13px;border-radius:var(--r);border:none;background:linear-gradient(135deg,#3b82f6,#34d399);color:#fff;font-size:14px;font-weight:600;font-family:'Syne',sans-serif;cursor:pointer;transition:.2s;margin-top:4px}
+.go-btn:hover{opacity:.9}
+
+/* ── STEP INDICATOR ── */
+.steps{display:flex;align-items:center;gap:6px;margin-bottom:24px}
+.step{width:24px;height:4px;border-radius:2px;background:var(--bg3);transition:.3s}
+.step.active{background:var(--accent2)}
+.step.done{background:var(--good)}
+
+/* animations */
+.fade-in{animation:fadein .4s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+
+<!-- Background -->
+<div class="bg-canvas">
+  <div class="float-circle fc1"></div>
+  <div class="float-circle fc2"></div>
+  <div class="float-circle fc3"></div>
+</div>
+<div class="grid-lines"></div>
+
+<div class="shell">
+
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+    <div class="brand">
+      <div class="brand-mark">🌬</div>
+      <div>
+        <div class="brand-name">AQI Watch</div>
+        <div class="brand-tag">Early Warning System · Indore</div>
+      </div>
+    </div>
+
+    <div class="left-hero">
+      <h2>Breathe safe.<br><span>Know before</span><br>you go.</h2>
+      <p>Real-time air quality monitoring with AI-powered predictions. Get notified before pollution reaches dangerous levels in your area.</p>
+
+      <div class="feature-list">
+        <div class="feat">
+          <div class="feat-icon">✦</div>
+          <div>
+            <div class="feat-title">AI Prediction Engine</div>
+            <div class="feat-desc">24h forecasts with confidence intervals powered by Claude AI</div>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="feat-icon">🗺</div>
+          <div>
+            <div class="feat-title">Airflow Simulation</div>
+            <div class="feat-desc">Live wind particle animation showing pollution drift across your city</div>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="feat-icon">🔔</div>
+          <div>
+            <div class="feat-title">Smart Alerts</div>
+            <div class="feat-desc">Instant notifications when AQI hits dangerous levels near you</div>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="feat-icon">📍</div>
+          <div>
+            <div class="feat-title">Location-aware</div>
+            <div class="feat-desc">Auto-detects your area and shows hyper-local air quality data</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="aqi-ticker">
+        <div class="tick g">Vijay Nagar · AQI 88 · Good</div>
+        <div class="tick y">Palasia · AQI 124 · Moderate</div>
+        <div class="tick r">Rajwada · AQI 201 · Unhealthy</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--text3)">© 2025 AQI Watch · Indore · Data from WAQI</div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+
+    <!-- Tabs: Login / Register -->
+    <div class="form-tabs">
+      <button class="ftab" id="tabLogin" onclick="switchTab('login')">Sign In</button>
+      <button class="ftab active" id="tabReg" onclick="switchTab('register')">Create Account</button>
+    </div>
+
+    <!-- ── REGISTER FORM ── -->
+    <div id="registerForm" class="fade-in">
+      <div class="form-header">
+        <div class="steps">
+          <div class="step active" id="s1"></div>
+          <div class="step" id="s2"></div>
+          <div class="step" id="s3"></div>
+        </div>
+        <div class="form-title">Create your account</div>
+        <div class="form-sub">Monitor air quality in your neighbourhood</div>
+      </div>
+
+      <div class="fields" id="step1Fields">
+        <!-- Name row -->
+        <div class="field-row">
+          <div class="field">
+            <label>First name</label>
+            <div class="field-wrap">
+              <span class="field-icon">👤</span>
+              <input type="text" id="fname" placeholder="Arjun" oninput="validateName('fname')" autocomplete="given-name"/>
+            </div>
+            <div class="field-err" id="fnameErr">Enter your first name</div>
+          </div>
+          <div class="field">
+            <label>Last name</label>
+            <div class="field-wrap">
+              <span class="field-icon">👤</span>
+              <input type="text" id="lname" placeholder="Sharma" oninput="validateName('lname')" autocomplete="family-name"/>
+            </div>
+            <div class="field-err" id="lnameErr">Enter your last name</div>
+          </div>
+        </div>
+
+        <!-- Email -->
+        <div class="field">
+          <label>Email address</label>
+          <div class="field-wrap">
+            <span class="field-icon">✉</span>
+            <input type="email" id="email" placeholder="arjun@example.com" oninput="validateEmail()" autocomplete="email"/>
+          </div>
+          <div class="field-err" id="emailErr">Enter a valid email address</div>
+        </div>
+
+        <!-- Phone -->
+        <div class="field">
+          <label>Phone number</label>
+          <div class="phone-wrap">
+            <select class="prefix-sel" id="phonePrefix">
+              <option value="+91">🇮🇳 +91</option>
+              <option value="+1">🇺🇸 +1</option>
+              <option value="+44">🇬🇧 +44</option>
+              <option value="+971">🇦🇪 +971</option>
+              <option value="+65">🇸🇬 +65</option>
+              <option value="+61">🇦🇺 +61</option>
+            </select>
+            <div class="phone-input-wrap">
+              <span class="field-icon" style="left:11px">📱</span>
+              <input type="tel" id="phone" placeholder="98765 43210" oninput="validatePhone()" autocomplete="tel" style="padding-left:38px;width:100%; cursor: pointer; padding:11px 12px 11px 38px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;transition:.2s;outline:none"/>
+            </div>
+          </div>
+          <div class="field-err" id="phoneErr">Enter a valid 10-digit number</div>
+        </div>
+
+        <!-- Current Address -->
+        <div class="field">
+          <label>Current address <span style="color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">(auto-detect or type)</span></label>
+          <div class="addr-wrap">
+            <span class="field-icon" style="top:12px;position:absolute">📍</span>
+            <textarea id="address" placeholder="Your full address will appear here…" style="padding:11px 80px 11px 38px;resize:none;height:72px;width:100%;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;transition:.2s;outline:none;line-height:1.5" oninput="checkAddr()"></textarea>
+            <button class="addr-fetch-btn" id="fetchAddrBtn" onclick="fetchAddress()">📡 Detect</button>
+          </div>
+          <div class="addr-status" id="addrStatus"></div>
+          <div class="field-err" id="addrErr">Address is required for area-based alerts</div>
+        </div>
+
+        <!-- Password -->
+        <div class="field">
+          <label>Password</label>
+          <div class="field-wrap">
+            <span class="field-icon">🔒</span>
+            <input type="password" id="password" placeholder="Minimum 8 characters" oninput="checkPwStrength()" autocomplete="new-password"/>
+            <span id="pwToggle" onclick="togglePw('password','pwToggle')" style="position:absolute;right:12px;cursor:pointer;font-size:14px;opacity:.5;user-select:none">👁</span>
+          </div>
+          <div class="pw-strength">
+            <div class="pw-bar" id="pb1"></div>
+            <div class="pw-bar" id="pb2"></div>
+            <div class="pw-bar" id="pb3"></div>
+            <div class="pw-bar" id="pb4"></div>
+          </div>
+          <div class="pw-label" id="pwLabel">Enter a password</div>
+        </div>
+
+        <!-- Notification preferences -->
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Alert preferences</div>
+          <div class="check-row" onclick="toggleCheck('nc1')">
+            <div class="check-box checked" id="nc1">✓</div>
+            <div class="check-text">Notify me when AQI exceeds 150 in my area</div>
+          </div>
+          <div class="check-row" onclick="toggleCheck('nc2')">
+            <div class="check-box checked" id="nc2">✓</div>
+            <div class="check-text">Send daily morning air quality summary</div>
+          </div>
+          <div class="check-row" onclick="toggleCheck('nc3')">
+            <div class="check-box" id="nc3"></div>
+            <div class="check-text">Share anonymised location data to improve predictions</div>
+          </div>
+        </div>
+
+        <!-- Terms -->
+        <div class="check-row" onclick="toggleCheck('terms')" style="margin-top:-2px">
+          <div class="check-box" id="terms"></div>
+          <div class="check-text">I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a></div>
+        </div>
+
+        <button class="submit-btn" onclick="submitRegister()">
+          <span class="btn-shine"></span>
+          Create Account & Start Monitoring
+        </button>
+
+        <div class="divider"><span>or continue with</span></div>
+        <div class="oauth-btns">
+          <button class="oauth-btn" onclick="oauthMsg('Google')">
+            <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285f4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34a853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#fbbc05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#ea4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+            Google
+          </button>
+          <button class="oauth-btn" onclick="oauthMsg('GitHub')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            GitHub
+          </button>
+        </div>
+
+        <div class="form-footer">Already have an account? <a href="#" onclick="switchTab('login')">Sign in</a></div>
+      </div>
+    </div>
+
+    <!-- ── LOGIN FORM ── -->
+    <div id="loginForm" style="display:none" class="fade-in">
+      <div class="form-header">
+        <div class="form-title">Welcome back</div>
+        <div class="form-sub">Sign in to your AQI Watch account</div>
+      </div>
+      <div class="fields">
+        <div class="field">
+          <label>Email address</label>
+          <div class="field-wrap">
+            <span class="field-icon">✉</span>
+            <input type="email" id="loginEmail" placeholder="arjun@example.com" autocomplete="email"/>
+          </div>
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <div class="field-wrap">
+            <span class="field-icon">🔒</span>
+            <input type="password" id="loginPw" placeholder="Your password" autocomplete="current-password"/>
+            <span onclick="togglePw('loginPw','loginPwEye')" id="loginPwEye" style="position:absolute;right:12px;cursor:pointer;font-size:14px;opacity:.5;user-select:none">👁</span>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:-6px">
+          <a href="#" style="font-size:12px;color:var(--accent);text-decoration:none">Forgot password?</a>
+        </div>
+        <button class="submit-btn" onclick="submitLogin()">
+          <span class="btn-shine"></span>
+          Sign In to Dashboard
+        </button>
+        <div class="divider"><span>or</span></div>
+        <div class="oauth-btns">
+          <button class="oauth-btn" onclick="oauthMsg('Google')">
+            <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285f4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34a853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#fbbc05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#ea4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+            Google
+          </button>
+          <button class="oauth-btn" onclick="oauthMsg('GitHub')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            GitHub
+          </button>
+        </div>
+        <div class="form-footer">New here? <a href="#" onclick="switchTab('register')">Create an account</a></div>
+      </div>
+    </div>
+
+    <!-- ── SUCCESS SCREEN ── -->
+    <div id="successScreen" class="success-screen">
+      <div class="success-icon">✓</div>
+      <div class="success-title">Account Created!</div>
+      <div class="success-sub">Welcome to AQI Watch. Your personalised dashboard is ready.</div>
+      <div class="success-info" id="successInfo"></div>
+      <button class="go-btn" onclick="goToDashboard()">Open AQI Dashboard →</button>
+    </div>
+
+  </div><!-- /right-panel -->
+</div><!-- /shell -->
+
+<script>
+// ═══════════════════════════════
+// TAB SWITCHING
+// ═══════════════════════════════
+function switchTab(tab){
+  document.getElementById('registerForm').style.display = tab==='register' ? 'block' : 'none';
+  document.getElementById('loginForm').style.display    = tab==='login'    ? 'block' : 'none';
+  document.getElementById('tabLogin').className  = 'ftab' + (tab==='login'    ? ' active' : '');
+  document.getElementById('tabReg').className    = 'ftab' + (tab==='register' ? ' active' : '');
+}
+
+// ═══════════════════════════════
+// VALIDATION
+// ═══════════════════════════════
+function showErr(id, msg){ const e=document.getElementById(id+'Err'); if(e){e.textContent=msg;e.style.display='block';} document.getElementById(id).classList.add('error'); document.getElementById(id).classList.remove('valid'); }
+function clearErr(id){ const e=document.getElementById(id+'Err'); if(e) e.style.display='none'; document.getElementById(id).classList.remove('error'); document.getElementById(id).classList.add('valid'); }
+
+function validateName(id){
+  const v=document.getElementById(id).value.trim();
+  if(v.length<2) showErr(id,'Minimum 2 characters'); else clearErr(id);
+}
+function validateEmail(){
+  const v=document.getElementById('email').value.trim();
+  const ok=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+  if(!ok) showErr('email','Enter a valid email address'); else clearErr('email');
+}
+function validatePhone(){
+  const v=document.getElementById('phone').value.replace(/\s/g,'');
+  if(!/^\d{10}$/.test(v)) showErr('phone','Enter a valid 10-digit number'); else clearErr('phone');
+}
+function checkAddr(){
+  const v=document.getElementById('address').value.trim();
+  if(v.length<5) showErr('address','Address is required for area-based alerts'); else clearErr('address');
+}
+
+// Password strength
+function checkPwStrength(){
+  const pw=document.getElementById('password').value;
+  const bars=['pb1','pb2','pb3','pb4'];
+  const label=document.getElementById('pwLabel');
+  let score=0;
+  if(pw.length>=8) score++;
+  if(/[A-Z]/.test(pw)) score++;
+  if(/[0-9]/.test(pw)) score++;
+  if(/[^A-Za-z0-9]/.test(pw)) score++;
+  const cols=['#f87171','#fbbf24','#34d399','#60a5fa'];
+  const lbls=['Too short','Weak','Good','Strong'];
+  bars.forEach((b,i)=>{ document.getElementById(b).style.background = i<score ? cols[score-1] : 'var(--bg3)'; });
+  label.textContent = score===0 ? 'Enter a password' : lbls[score-1];
+  label.style.color = score===0 ? 'var(--text3)' : cols[score-1];
+}
+
+function togglePw(inputId, iconId){
+  const inp=document.getElementById(inputId);
+  const ico=document.getElementById(iconId);
+  inp.type = inp.type==='password' ? 'text' : 'password';
+  ico.style.opacity = inp.type==='text' ? '1' : '0.5';
+}
+
+// Checkboxes
+const checkStates = { nc1:true, nc2:true, nc3:false, terms:false };
+function toggleCheck(id){
+  checkStates[id]=!checkStates[id];
+  const el=document.getElementById(id);
+  el.classList.toggle('checked', checkStates[id]);
+  el.textContent = checkStates[id] ? '✓' : '';
+}
+
+// ═══════════════════════════════
+// GEOLOCATION + REVERSE GEOCODE
+// ═══════════════════════════════
+function fetchAddress(){
+  const btn=document.getElementById('fetchAddrBtn');
+  const status=document.getElementById('addrStatus');
+  btn.textContent='⏳ Locating…';
+  btn.className='addr-fetch-btn loading';
+  status.innerHTML='<span style="color:var(--warn)">Requesting location permission…</span>';
+
+  if(!navigator.geolocation){
+    status.innerHTML='<span style="color:var(--danger)">Geolocation not supported by your browser</span>';
+    btn.textContent='📡 Detect'; btn.className='addr-fetch-btn'; return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    async pos=>{
+      const {latitude:lat, longitude:lng} = pos.coords;
+      status.innerHTML=`<span style="color:var(--warn)">Got coordinates (${lat.toFixed(4)}, ${lng.toFixed(4)}). Resolving address…</span>`;
+      try{
+        // Nominatim free reverse geocoder (OpenStreetMap)
+        const res=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,{
+          headers:{'Accept-Language':'en-IN,en','User-Agent':'AQI-Early-Warning-System'}
+        });
+        const data=await res.json();
+        if(data && data.display_name){
+          const a=data.address||{};
+          const parts=[
+            a.road||a.neighbourhood||a.suburb,
+            a.city_district||a.suburb||a.village,
+            a.city||a.town||a.state_district,
+            a.state,
+            a.country
+          ].filter(Boolean);
+          const addr=parts.join(', ');
+          document.getElementById('address').value=addr;
+          clearErr('address');
+          btn.textContent='✓ Detected';
+          btn.className='addr-fetch-btn done';
+          status.innerHTML=`<span style="color:var(--good)">📍 Location detected successfully</span>`;
+          // Store coords for dashboard
+          window._userLat=lat; window._userLng=lng;
+          window._userCity=a.city||a.town||'Indore';
+        }else{
+          throw new Error('No address returned');
+        }
+      }catch(e){
+        // Fallback: show coords
+        document.getElementById('address').value=`Lat: ${lat.toFixed(5)}, Lng: ${lng.toFixed(5)}`;
+        btn.textContent='📡 Detect'; btn.className='addr-fetch-btn';
+        status.innerHTML=`<span style="color:var(--warn)">Coordinates fetched. Reverse geocoding unavailable.</span>`;
+      }
+    },
+    err=>{
+      btn.textContent='📡 Detect'; btn.className='addr-fetch-btn';
+      const msgs={1:'Location permission denied. Please allow access.',2:'Location unavailable.',3:'Request timed out.'};
+      status.innerHTML=`<span style="color:var(--danger)">${msgs[err.code]||'Location error.'}</span>`;
+    },
+    {timeout:10000, enableHighAccuracy:true}
+  );
+}
+
+// ═══════════════════════════════
+// SUBMIT REGISTER
+// ═══════════════════════════════
+function submitRegister(){
+  const fname=document.getElementById('fname').value.trim();
+  const lname=document.getElementById('lname').value.trim();
+  const email=document.getElementById('email').value.trim();
+  const phone=document.getElementById('phone').value.trim();
+  const address=document.getElementById('address').value.trim();
+  const pw=document.getElementById('password').value;
+
+  let ok=true;
+  if(fname.length<2){showErr('fname','Enter your first name');ok=false;}
+  if(lname.length<2){showErr('lname','Enter your last name');ok=false;}
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){showErr('email','Enter a valid email');ok=false;}
+  if(!/^\d{10}$/.test(phone.replace(/\s/g,''))){showErr('phone','Enter a valid 10-digit number');ok=false;}
+  if(address.length<5){showErr('address','Address is required');ok=false;}
+  if(pw.length<8){alert('Password must be at least 8 characters.');ok=false;}
+  if(!checkStates.terms){alert('Please accept the Terms of Service.');ok=false;}
+  if(!ok) return;
+
+  const prefix=document.getElementById('phonePrefix').value;
+
+  // Show success
+  document.getElementById('registerForm').style.display='none';
+  const ss=document.getElementById('successScreen');
+  ss.style.display='flex';
+
+  document.getElementById('successInfo').innerHTML=`
+    <div class="si-row"><span class="si-k">Name</span><span class="si-v">${fname} ${lname}</span></div>
+    <div class="si-row"><span class="si-k">Email</span><span class="si-v">${email}</span></div>
+    <div class="si-row"><span class="si-k">Phone</span><span class="si-v">${prefix} ${phone}</span></div>
+    <div class="si-row"><span class="si-k">Location</span><span class="si-v">${address.split(',').slice(0,3).join(',')||address}</span></div>
+    <div class="si-row"><span class="si-k">AQI Alerts</span><span class="si-v">${checkStates.nc1?'Enabled':'Disabled'}</span></div>
+    <div class="si-row"><span class="si-k">Daily Summary</span><span class="si-v">${checkStates.nc2?'Enabled':'Disabled'}</span></div>
+  `;
+
+  // Store to sessionStorage (in real app → send to backend)
+  sessionStorage.setItem('aqiUser', JSON.stringify({
+    name:`${fname} ${lname}`, email, phone:`${prefix} ${phone}`,
+    address, lat:window._userLat, lng:window._userLng,
+    alerts:checkStates.nc1, summary:checkStates.nc2
+  }));
+}
+
+// ═══════════════════════════════
+// SUBMIT LOGIN
+// ═══════════════════════════════
+function submitLogin(){
+  const email=document.getElementById('loginEmail').value.trim();
+  const pw=document.getElementById('loginPw').value;
+  if(!email||!pw){alert('Please enter your email and password.');return;}
+  // Simulate login → go to dashboard
+  goToDashboard();
+}
+
+// ═══════════════════════════════
+// NAVIGATE TO DASHBOARD
+// ═══════════════════════════════
+function goToDashboard(){
+  // In production: window.location.href = 'aqi-ai-upgraded.html'
+  // For demo, show a brief message
+  alert('Redirecting to AQI Dashboard…\n\nIn production: link this to aqi-ai-upgraded.html');
+}
+
+function oauthMsg(provider){
+  alert(`${provider} OAuth would open here.\nIn production, integrate with ${provider} OAuth 2.0 flow.`);
+}
+
+// Animate the step indicator on scroll
+document.addEventListener('scroll', ()=>{}, {passive:true});
+</script>
+</body>
+</html>
