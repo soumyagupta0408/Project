@@ -90,6 +90,18 @@ class BackendClient:
         except Exception:
             return []
 
+    # ── All Stations  (PUBLIC — no auth required) ──────────────────────────────
+
+    def get_all_stations(self) -> dict | None:
+        """Fetch real AQI for all CPCB monitoring stations in Indore."""
+        url = f"{self.base}/api/aqi/indore/stations"
+        try:
+            r = requests.get(url, timeout=15)
+            r.raise_for_status()
+            return r.json()
+        except Exception:
+            return None
+
     # ── Alerts  (PROTECTED — always needs auth) ───────────────────────────────
 
     def get_alerts(self, limit: int = 50) -> list[dict]:

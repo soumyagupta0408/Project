@@ -92,21 +92,42 @@ html, body, [class*="css"] {
 .a-yellow { background:#1a1206;border-color:#78350f;color:var(--amber); }
 .a-red    { background:#1a0808;border-color:#7f1d1d;color:var(--red);   }
 
-.mcard { background:var(--card);border:1px solid var(--border);border-radius:12px;
-    padding:1rem 1.15rem;position:relative;overflow:hidden;margin-bottom:.2rem; }
-.mcard::before { content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:12px 12px 0 0; }
-.m-blue::before  { background:var(--blue); }
-.m-teal::before  { background:var(--teal); }
-.m-amber::before { background:var(--amber); }
-.m-green::before { background:var(--green); }
-.m-red::before   { background:var(--red); }
-.m-purple::before{ background:var(--purple); }
-.mlabel { font-size:.67rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:.3rem; }
-.mval   { font-family:'Space Mono',monospace;font-size:1.85rem;font-weight:700;line-height:1; }
-.msub   { font-size:.73rem;color:var(--muted);margin-top:.28rem; }
+.mcard { background:var(--card);border:1px solid var(--border);border-radius:14px;
+    padding:1.1rem 1.25rem;position:relative;overflow:hidden;margin-bottom:.2rem;
+    backdrop-filter:blur(12px);transition:transform .2s ease, box-shadow .2s ease; }
+.mcard:hover { transform:translateY(-2px);box-shadow:0 8px 25px rgba(0,0,0,.15); }
+.mcard::before { content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:14px 14px 0 0; }
+.m-blue::before  { background:linear-gradient(90deg, #0ea5e9, #38bdf8); }
+.m-teal::before  { background:linear-gradient(90deg, #0d9488, #2dd4bf); }
+.m-amber::before { background:linear-gradient(90deg, #d97706, #fbbf24); }
+.m-green::before { background:linear-gradient(90deg, #16a34a, #4ade80); }
+.m-red::before   { background:linear-gradient(90deg, #dc2626, #f87171); }
+.m-purple::before{ background:linear-gradient(90deg, #7c3aed, #a78bfa); }
+.mcard::after { content:'';position:absolute;top:3px;left:0;right:0;height:40px;
+    background:linear-gradient(to bottom, rgba(255,255,255,.02), transparent);pointer-events:none; }
+.mlabel { font-size:.68rem;text-transform:uppercase;letter-spacing:.13em;color:var(--muted);margin-bottom:.35rem;
+    display:flex;align-items:center;gap:.4rem; }
+.mval   { font-family:'Space Mono',monospace;font-size:2rem;font-weight:700;line-height:1;
+    background:linear-gradient(135deg, var(--text), rgba(255,255,255,.7));
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text; }
+.msub   { font-size:.73rem;color:var(--muted);margin-top:.32rem;line-height:1.35; }
 .thresh-badge { font-size:.65rem;padding:.18rem .55rem;border-radius:20px;font-weight:700;
     font-family:'Space Mono',monospace;background:rgba(251,191,36,.12);color:var(--amber);
     border:1px solid rgba(251,191,36,.3);margin-left:.4rem; }
+
+/* ── Expander (Nearest Safe Zone dropdown) ── */
+div[data-testid="stExpander"] {
+    background:var(--card) !important;border:1px solid var(--border) !important;
+    border-radius:12px !important;margin-bottom:.8rem !important;overflow:hidden;
+}
+div[data-testid="stExpander"] summary {
+    font-family:'DM Sans',sans-serif !important;font-size:.92rem !important;
+    font-weight:600 !important;color:var(--text) !important;
+    padding:.8rem 1.1rem !important;
+}
+div[data-testid="stExpander"] summary:hover {
+    background:var(--card2) !important;
+}
 
 .stitle { font-family:'Space Mono',monospace;font-size:.68rem;text-transform:uppercase;
     letter-spacing:.15em;color:var(--muted);margin-bottom:.6rem;display:flex;align-items:center;gap:.5rem; }
@@ -355,100 +376,126 @@ def mcard(accent, label, value, sub=""):
         <div class="msub">{sub}</div>
     </div>"""
 
-# ─── Indore CPCB monitoring stations with relative AQI offsets ────────────────
-# Offsets are realistic zone-based deltas relative to the current live AQI.
-# Positive = worse, Negative = better than current reading.
-INDORE_STATIONS = [
-    {"name": "Nehru Park",       "zone": "Central",      "offset": -38, "lat": 22.7196, "lon": 75.8577},
-    {"name": "Rajwada",          "zone": "Old City",      "offset":  +5, "lat": 22.7181, "lon": 75.8560},
-    {"name": "Vijay Nagar",      "zone": "West",          "offset": -22, "lat": 22.7533, "lon": 75.8937},
-    {"name": "Palasia",          "zone": "North-West",    "offset": +12, "lat": 22.7260, "lon": 75.8682},
-    {"name": "Rau",              "zone": "South",         "offset": -45, "lat": 22.6381, "lon": 75.8480},
-    {"name": "Lasudiya Mori",    "zone": "East",          "offset":  +8, "lat": 22.7321, "lon": 75.9012},
-    {"name": "Rasoma Square",    "zone": "South-West",    "offset": -18, "lat": 22.6902, "lon": 75.8341},
-    {"name": "Scheme 54",        "zone": "North",         "offset": -10, "lat": 22.7698, "lon": 75.8876},
-]
+# ─── Real station data loader ─────────────────────────────────────────────────
 
-def get_station_aqi(base_aqi):
-    """Return stations enriched with computed AQI, sorted cleanest first."""
-    np.random.seed(int(base_aqi) % 37)   # stable per AQI value, adds slight noise
-    stations = []
-    for s in INDORE_STATIONS:
-        noise   = round(float(np.random.randn() * 4), 1)
-        aqi_val = round(max(10.0, base_aqi + s["offset"] + noise), 1)
-        cat_s, col_s, _ = aqi_info(aqi_val)
-        if   aqi_val <= 100: pill_cls = "pill-good"
-        elif aqi_val <= 200: pill_cls = "pill-mod"
-        else:                pill_cls = "pill-poor"
-        stations.append({**s, "aqi": aqi_val, "cat": cat_s, "pill": pill_cls})
-    return sorted(stations, key=lambda x: x["aqi"])
+@st.cache_data(ttl=300, show_spinner=False)
+def load_all_stations():
+    """Fetch real AQI for all Indore CPCB stations from backend API."""
+    data = client.get_all_stations()
+    if data and isinstance(data, dict):
+        stations = data.get("stations", [])
+        primary_aqi = data.get("primary_aqi")
+        if stations:
+            return stations, primary_aqi, True
+    return [], None, False
+
 
 def render_notify_panel(live_aqi, cat, banner_cls, threshold):
-    """Render the full notification + safer areas panel."""
-    stations = get_station_aqi(live_aqi)
-    best     = stations[0]      # cleanest station
+    """Render the full notification + safer areas panel with REAL station data."""
+    all_stations, primary_aqi, stations_live = load_all_stations()
+
+    if not all_stations:
+        st.markdown(
+            '<div class="notify-panel">'
+            '<div style="text-align:center;color:#4b5a72;padding:1.5rem;">'
+            '⚠️ Could not load station data. Backend may be offline.</div></div>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    best = all_stations[0]  # already sorted cleanest-first by backend
 
     # Top status message
     if banner_cls == "a-red":
         status_style = "background:#1a0808;border-color:#7f1d1d;color:#f87171;"
         status_msg   = (f"🚨 <b>Alert:</b> Air quality is <b>{cat}</b> ({live_aqi:.0f} AQI) — "
                         f"exceeds safe threshold of {threshold}. "
-                        f"Moving to <b>{best['name']}</b> ({best['zone']}) is recommended.")
+                        f"Moving to <b>{best.get('short_name', best['name'])}</b> is recommended.")
     elif banner_cls == "a-yellow":
         status_style = "background:#1a1206;border-color:#78350f;color:#fbbf24;"
         status_msg   = (f"⚠️ <b>Caution:</b> Air quality is <b>{cat}</b> ({live_aqi:.0f} AQI). "
-                        f"Sensitive groups should consider <b>{best['name']}</b> ({best['zone']}) "
+                        f"Sensitive groups should consider <b>{best.get('short_name', best['name'])}</b> "
                         f"which has better air quality.")
     else:
         status_style = "background:#071a0f;border-color:#14532d;color:#4ade80;"
         status_msg   = (f"✅ Air quality is <b>{cat}</b> ({live_aqi:.0f} AQI) — currently safe. "
-                        f"Cleanest area nearby: <b>{best['name']}</b> ({best['zone']}).")
+                        f"Cleanest station: <b>{best.get('short_name', best['name'])}</b>.")
 
     # Build table rows HTML
     rows = ""
-    for i, s in enumerate(stations):
-        is_best = i == 0
-        is_cur  = abs(s["aqi"] - live_aqi) < 15 and not is_best
+    for i, s in enumerate(all_stations):
+        s_aqi  = s.get("aqi") or 0
+        s_name = s.get("short_name") or s.get("name", "?")
+        s_cat  = s.get("category", "")
+        is_primary = s.get("is_primary", False)
+        source     = s.get("data_source", "CPCB")
+
+        is_best = (i == 0)
+        diff    = s_aqi - live_aqi
+
+        # Color coding: green if lower than current, red if higher
+        if diff < -5:
+            diff_str  = f'<span style="color:#4ade80;font-size:.7rem;">▼ {abs(diff):.0f} better</span>'
+            row_color = "rgba(74,222,128,.04)"
+        elif diff > 5:
+            diff_str  = f'<span style="color:#f87171;font-size:.7rem;">▲ {diff:.0f} worse</span>'
+            row_color = "rgba(248,113,113,.04)"
+        else:
+            diff_str  = '<span style="color:#4b5a72;font-size:.7rem;">≈ similar</span>'
+            row_color = "transparent"
+
+        # AQI pill class
+        if   s_aqi <= 50:  pill_cls = "pill-good"
+        elif s_aqi <= 100: pill_cls = "pill-good"
+        elif s_aqi <= 200: pill_cls = "pill-mod"
+        else:              pill_cls = "pill-poor"
+
+        if is_primary:
+            pill_cls = "pill-cur"
+
         row_cls = ' class="best-row"' if is_best else ""
-        badge   = '<span class="best-badge">✦ Recommended</span>' if is_best else ""
-        diff    = s["aqi"] - live_aqi
-        diff_str = (f'<span style="color:#4ade80;font-size:.7rem;">▼ {abs(diff):.0f} better</span>'
-                    if diff < -5
-                    else (f'<span style="color:#f87171;font-size:.7rem;">▲ {diff:.0f} worse</span>'
-                          if diff > 5
-                          else '<span style="color:#4b5a72;font-size:.7rem;">≈ similar</span>'))
-        aqi_pill_cls = "pill-cur" if is_cur else s["pill"]
-        rows += f"""<tr{row_cls}>
-            <td><b>{s['name']}</b>{badge}</td>
-            <td style="color:#4b5a72;">{s['zone']}</td>
-            <td><span class="area-aqi-pill {aqi_pill_cls}">{s['aqi']:.0f}</span></td>
-            <td>{s['cat']}</td>
+        badge   = '<span class="best-badge">✦ Safest</span>' if is_best else ""
+        primary_tag = (f'<span style="font-size:.6rem;color:#38bdf8;margin-left:.3rem;">'
+                       f'⚡ {source}</span>') if is_primary else (
+                       f'<span style="font-size:.6rem;color:#4b5a72;margin-left:.3rem;">'
+                       f'{source}</span>')
+
+        rows += f"""<tr{row_cls} style="background:{row_color};">
+            <td><b>{s_name}</b>{badge}{primary_tag}</td>
+            <td><span class="area-aqi-pill {pill_cls}">{s_aqi:.0f}</span></td>
+            <td>{s_cat}</td>
             <td>{diff_str}</td>
         </tr>"""
 
-    improve_pct = round((live_aqi - best["aqi"]) / live_aqi * 100) if live_aqi > 0 else 0
-    improve_txt = (f"Moving to {best['name']} could improve air quality by ~{improve_pct}% "
-                   f"({live_aqi:.0f} → {best['aqi']:.0f} AQI)"
+    best_aqi = best.get("aqi", 0)
+    improve_pct = round((live_aqi - best_aqi) / live_aqi * 100) if live_aqi > 0 and best_aqi < live_aqi else 0
+    best_short  = best.get("short_name", best["name"])
+    improve_txt = (f"Moving to {best_short} could improve air quality by ~{improve_pct}% "
+                   f"({live_aqi:.0f} → {best_aqi:.0f} AQI)"
                    if improve_pct > 0
-                   else f"{best['name']} currently has the best air quality in Indore.")
+                   else f"{best_short} currently has the best air quality in Indore.")
+
+    live_tag = (' <span style="font-size:.65rem;color:#4ade80;">● LIVE DATA</span>'
+                if stations_live else
+                ' <span style="font-size:.65rem;color:#fbbf24;">● CACHED</span>')
 
     st.markdown(f"""
     <div class="notify-panel">
         <div class="notify-header">
             <div class="notify-icon">🔔</div>
             <div>
-                <div class="notify-title">Air Quality Notification</div>
-                <div class="notify-sub">Indore CPCB Stations · Updated {datetime.now().strftime('%H:%M')}</div>
+                <div class="notify-title">Nearest Safe Zone{live_tag}</div>
+                <div class="notify-sub">Indore CPCB Monitoring Stations · Real Data · Updated {datetime.now().strftime('%H:%M')}</div>
             </div>
         </div>
         <div class="aqi-status-bar" style="{status_style}">{status_msg}</div>
         <div style="font-family:'Space Mono',monospace;font-size:.63rem;text-transform:uppercase;
              letter-spacing:.13em;color:#4b5a72;margin-bottom:.45rem;">
-            📍 Nearby Areas — AQI Comparison
+            📍 All Stations — AQI Comparison (green = safer, red = worse)
         </div>
         <table class="area-table">
             <thead><tr>
-                <th>Station / Area</th><th>Zone</th><th>AQI</th><th>Category</th><th>vs Current</th>
+                <th>Station</th><th>AQI</th><th>Category</th><th>vs Current</th>
             </tr></thead>
             <tbody>{rows}</tbody>
         </table>
@@ -464,6 +511,7 @@ def valid_phone(s):
     return bool(re.match(r"^[6-9]\d{9}$", s.strip()))
 
 # ─── Data loaders ─────────────────────────────────────────────────────────────
+@st.cache_data(ttl=300, show_spinner="Fetching AQI data...")
 def load_live_aqi():
     data = client.get_aqi("indore")
 
@@ -516,6 +564,7 @@ def load_live_aqi():
     live_aqi = max(poll.get("PM2.5", 48) * 1.5, poll.get("PM10", 82))
     return poll, round(live_aqi, 1), False, 150, "DEMO — backend offline"
 
+@st.cache_data(ttl=300, show_spinner=False)
 def load_history():
     records = client.get_aqi_history("indore", limit=500)
     if records:
@@ -594,6 +643,7 @@ def load_history():
             pass
     return None
 
+@st.cache_data(ttl=300, show_spinner=False)
 def load_alerts():
     alerts = client.get_alerts(limit=10)
     if alerts:
@@ -613,7 +663,14 @@ def load_alerts():
 
 # ─── Load all data ────────────────────────────────────────────────────────────
 poll, live_aqi, is_live, threshold, data_source = load_live_aqi()
-# REMOVE after debugging
+
+# Override live_aqi with average of ALL stations for a city-wide value
+_all_stations, _primary_aqi, _stations_ok = load_all_stations()
+if _stations_ok and _all_stations:
+    _station_aqis = [s.get("aqi") for s in _all_stations if s.get("aqi") is not None]
+    if _station_aqis:
+        live_aqi = round(sum(_station_aqis) / len(_station_aqis), 1)
+        data_source = f"Avg of {len(_station_aqis)} CPCB stations"
 
 dom_poll = max(poll, key=poll.get) if poll else "PM2.5"
 cat, col_hex, banner_cls = aqi_info(live_aqi)
@@ -934,45 +991,17 @@ b_msgs = {
 st.markdown(f'<div class="alert-banner {banner_cls}">{b_icon} &nbsp; {b_msgs[banner_cls]}</div>',
             unsafe_allow_html=True)
 
-# ── Notify Me row ─────────────────────────────────────────────────────────────
-if "show_notify_panel" not in st.session_state:
-    st.session_state.show_notify_panel = False
-
-notify_col, _ = st.columns([3, 7])
-with notify_col:
-    if st.session_state.get("authenticated"):
-        btn_label = ("🔔  Hide Notification" if st.session_state.show_notify_panel
-                     else "🔔  View Air Quality Alert")
-        if st.button(btn_label, key="notify_me_btn", use_container_width=True):
-            st.session_state.show_notify_panel = not st.session_state.show_notify_panel
-            st.rerun()
-        st.markdown(
-            "<div style='font-size:.7rem;color:#4b5a72;margin-top:-.3rem;margin-bottom:.5rem;'>"
-            "Tap to see current status & safer nearby areas</div>",
-            unsafe_allow_html=True
-        )
-    else:
-        if st.button("🔔  Notify Me — Get Air Quality Alerts", key="notify_me_btn"):
-            st.session_state.show_login_modal   = True
-            st.session_state.login_mode         = "login"
-            st.session_state.notify_after_login = True
-            st.rerun()
-        st.markdown(
-            "<div style='font-size:.7rem;color:#4b5a72;margin-top:-.3rem;margin-bottom:.8rem;'>"
-            "Free · No spam · Unsubscribe anytime</div>",
-            unsafe_allow_html=True
-        )
-
-# ── Render notify panel when open (authenticated only) ────────────────────────
-if st.session_state.get("authenticated") and st.session_state.get("show_notify_panel"):
+# ── Nearest Safe Zone expander (dropdown arrow) ──────────────────────────────
+with st.expander("📍 Nearest Safe Zones — Compare All Indore CPCB Stations", expanded=False):
     render_notify_panel(live_aqi, cat, banner_cls, threshold)
 
 # ─── Metric cards ─────────────────────────────────────────────────────────────
 c1, c2, c3, c4 = st.columns(4)
 thresh_accent  = "green" if live_aqi <= threshold else "red"
 
+_aqi_sub = f"{cat} · {data_source}" if _stations_ok else cat
 for obj, accent, lbl, val, sub in [
-    (c1, "blue",  "Current AQI",  f"{live_aqi:.0f}",cat),
+    (c1, "blue",  "Current AQI",  f"{live_aqi:.0f}", _aqi_sub),
     (c2, "teal",  "6h Forecast",  f"{pred_df['aqi'].iloc[:6].mean():.0f}", "LSTM predicted"),
     (c3, "amber", "24h Forecast", f"{pred_df['aqi'].iloc[:24].mean():.0f}",f"Δ {delta24:+.0f} from now"),
 ]:
@@ -1217,3 +1246,45 @@ st.markdown("""
     LSTM + Isolation Forest · Madhya Pradesh, India
 </div>
 """, unsafe_allow_html=True)
+
+# ── Floating "Get Notification" button (bottom-right corner) ──────────────────
+# Check if the floating button was clicked (query param approach)
+if st.query_params.get("get_notification") == "true":
+    st.query_params.clear()
+    st.session_state.show_login_modal   = True
+    st.session_state.login_mode         = "login"
+    st.session_state.notify_after_login = True
+    st.rerun()
+
+if not st.session_state.get("authenticated"):
+    st.markdown("""
+    <style>
+    .fab-notify {
+        position:fixed; bottom:28px; right:28px; z-index:99999;
+        display:inline-flex; align-items:center; gap:8px;
+        background:linear-gradient(135deg, #fbbf24, #f59e0b);
+        color:#1a0f00 !important; font-family:'DM Sans',sans-serif;
+        font-size:15px; font-weight:700;
+        padding:12px 22px; border:none; border-radius:50px;
+        cursor:pointer; text-decoration:none !important;
+        box-shadow: 0 4px 20px rgba(251,191,36,.35);
+        transition: all .25s ease;
+        animation: fab-pulse 2.5s infinite;
+    }
+    .fab-notify:hover {
+        transform:translateY(-3px) scale(1.04);
+        box-shadow: 0 8px 30px rgba(251,191,36,.5), 0 0 20px rgba(251,191,36,.3);
+        background:linear-gradient(135deg, #fcd34d, #fbbf24);
+        color:#1a0f00 !important; text-decoration:none !important;
+    }
+    .fab-notify:active { transform:translateY(-1px) scale(1); }
+    @keyframes fab-pulse {
+        0%   { box-shadow: 0 4px 20px rgba(251,191,36,.35), 0 0 0 0 rgba(251,191,36,.4); }
+        70%  { box-shadow: 0 4px 20px rgba(251,191,36,.35), 0 0 0 12px rgba(251,191,36,0); }
+        100% { box-shadow: 0 4px 20px rgba(251,191,36,.35), 0 0 0 0 rgba(251,191,36,0); }
+    }
+    </style>
+    <a href="?get_notification=true" class="fab-notify">
+        🔔 Get Notification
+    </a>
+    """, unsafe_allow_html=True)
