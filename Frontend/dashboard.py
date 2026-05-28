@@ -698,162 +698,175 @@ if is_live and live_aqi > threshold and st.session_state.get("token"):
 #  Shown in place of the full dashboard when show_login_modal == True.
 # ══════════════════════════════════════════════════════════════════════════════
 def render_login_modal():
-    # Close button
-    close_col, _ = st.columns([1, 6])
-    with close_col:
+    # Modal styling (no backdrop div — st.stop() already replaced the page)
+    st.markdown("""
+    <style>
+    .modal-card {
+        background:var(--card);border:1px solid var(--border);border-radius:18px;
+        padding:1.6rem 1.8rem 1.8rem 1.8rem;
+        box-shadow:0 24px 80px rgba(0,0,0,.7);
+        animation: modalSlideIn .3s ease;
+        margin-top:1rem;
+    }
+    @keyframes modalSlideIn {
+        from { opacity:0;transform:translateY(-20px) scale(.97); }
+        to   { opacity:1;transform:translateY(0) scale(1); }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Center the modal using columns (narrow center column)
+    _, modal_col, _ = st.columns([1.2, 1.6, 1.2])
+    with modal_col:
+        # Close button
         if st.button("✕  Close", key="modal_close_btn"):
             st.session_state.show_login_modal   = False
             st.session_state.notify_after_login = False
             st.rerun()
 
-    # Modal card
-    st.markdown("""
-    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;
-         padding:1.8rem 2rem 2rem 2rem;max-width:460px;margin:0 auto;
-         box-shadow:0 24px 80px rgba(0,0,0,.6);">
-    """, unsafe_allow_html=True)
+        st.markdown('<div class="modal-card">', unsafe_allow_html=True)
 
-    # Header — context-aware
-    if st.session_state.get("notify_after_login"):
-        st.markdown("""
-        <div style="text-align:center;margin-bottom:1.2rem;">
-            <div style="font-size:2rem;margin-bottom:.3rem;">🔔</div>
-            <div style="font-family:'Space Mono',monospace;font-size:1rem;font-weight:700;
-                 background:linear-gradient(130deg,#f59e0b,#ef4444);
-                 -webkit-background-clip:text;-webkit-text-fill-color:transparent;">
-                 Enable Air Quality Alerts</div>
-            <div style="font-size:.78rem;color:#4b5a72;margin-top:.35rem;line-height:1.55;">
-                Sign in or create a free account to receive alerts<br>
-                when AQI crosses unsafe levels in Indore.</div>
-        </div>""", unsafe_allow_html=True)
-    else:
-        st.markdown("""
-        <div style="text-align:center;margin-bottom:1.2rem;">
-            <div style="font-size:2rem;margin-bottom:.3rem;">🌫️</div>
-            <div style="font-family:'Space Mono',monospace;font-size:1rem;font-weight:700;
-                 background:linear-gradient(130deg,#38bdf8,#2dd4bf);
-                 -webkit-background-clip:text;-webkit-text-fill-color:transparent;">
-                 AQI EWS Account</div>
-            <div style="font-size:.78rem;color:#4b5a72;margin-top:.35rem;">
-                Early Warning System · Indore, Madhya Pradesh</div>
-        </div>""", unsafe_allow_html=True)
-
-    # Mode tabs
-    mc1, mc2 = st.columns(2)
-    with mc1:
-        if st.button("🔑 Sign In", key="modal_tab_login", use_container_width=True,
-                     type="primary" if st.session_state.login_mode == "login" else "secondary"):
-            st.session_state.login_mode = "login"; st.rerun()
-    with mc2:
-        if st.button("📝 Register", key="modal_tab_reg", use_container_width=True,
-                     type="primary" if st.session_state.login_mode == "register" else "secondary"):
-            st.session_state.login_mode = "register"; st.rerun()
-
-    st.markdown("<div style='height:.5rem'></div>", unsafe_allow_html=True)
-
-    # ── SIGN IN ───────────────────────────────────────────────────────────────
-    if st.session_state.login_mode == "login":
-        with st.form("modal_login_form"):
-            st.markdown("<div style='font-size:.93rem;font-weight:600;margin-bottom:.9rem;'>Welcome back</div>",
-                        unsafe_allow_html=True)
-            contact  = st.text_input("Email or Mobile Number",
-                                     placeholder="yourname@email.com  or  9876543210",
-                                     key="ml_contact")
-            password = st.text_input("Password", type="password",
-                                     placeholder="Your password", key="ml_password")
-            submitted = st.form_submit_button("Sign In →", use_container_width=True)
-
-        if submitted:
-            if not contact.strip() or not password.strip():
-                st.markdown('<div class="err-box">⚠️ Please fill in all fields.</div>',
-                            unsafe_allow_html=True)
-            else:
-                with st.spinner("Signing in…"):
-                    if backend_login(contact.strip(), password):
-                        st.session_state.show_login_modal   = False
-                        st.session_state.notify_after_login = False
-                        st.rerun()
-
-        st.markdown("""
-        <div style='text-align:center;margin-top:.9rem;font-size:.78rem;color:#4b5a72;'>
-            New to AQI-EWS? Click <b style="color:#38bdf8;">Register</b> above.
-        </div>""", unsafe_allow_html=True)
-
-    # ── REGISTER ──────────────────────────────────────────────────────────────
-    else:
-        st.markdown("<div style='font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;"
-                    "color:#4b5a72;margin:.2rem 0 .4rem 0;'>📍 Detect Your Location (optional)</div>",
-                    unsafe_allow_html=True)
-        if st.session_state.gps_address:
-            st.markdown(f"""<div class="loc-result success">
-                <span>✅</span>
-                <div>
-                    <div class="loc-addr">{st.session_state.gps_address}</div>
-                    <div class="loc-coords">🛰 {st.session_state.gps_lat},  {st.session_state.gps_lon}</div>
-                </div></div>""", unsafe_allow_html=True)
-            if st.button("🔄 Re-detect", key="modal_redetect"):
-                st.session_state.gps_address = ""; st.session_state.gps_lat = ""
-                st.session_state.gps_lon = ""; st.session_state.loc_fetched = False; st.rerun()
+        # Header
+        if st.session_state.get("notify_after_login"):
+            st.markdown("""
+            <div style="text-align:center;margin-bottom:1rem;">
+                <div style="font-size:1.8rem;margin-bottom:.2rem;">🔔</div>
+                <div style="font-family:'Space Mono',monospace;font-size:.95rem;font-weight:700;
+                     background:linear-gradient(130deg,#f59e0b,#ef4444);
+                     -webkit-background-clip:text;-webkit-text-fill-color:transparent;">
+                     Enable Air Quality Alerts</div>
+                <div style="font-size:.75rem;color:#4b5a72;margin-top:.3rem;line-height:1.5;">
+                    Sign in or create a free account to receive alerts<br>
+                    when AQI crosses unsafe levels in Indore.</div>
+            </div>""", unsafe_allow_html=True)
         else:
-            geo_result = components.html(GEO_COMPONENT, height=115, scrolling=False)
-            if geo_result and isinstance(geo_result, dict):
-                status  = geo_result.get("status","")
-                address = geo_result.get("address","").strip()
-                if status == "success" and address and not st.session_state.loc_fetched:
-                    st.session_state.gps_address = address
-                    st.session_state.gps_lat     = str(geo_result.get("lat",""))
-                    st.session_state.gps_lon     = str(geo_result.get("lon",""))
-                    st.session_state.loc_fetched = True
-                    st.rerun()
-                elif status == "denied":
-                    st.markdown('<div class="loc-result error">❌ &nbsp; Permission denied. Enter address manually below.</div>',
+            st.markdown("""
+            <div style="text-align:center;margin-bottom:1rem;">
+                <div style="font-size:1.8rem;margin-bottom:.2rem;">🌫️</div>
+                <div style="font-family:'Space Mono',monospace;font-size:.95rem;font-weight:700;
+                     background:linear-gradient(130deg,#38bdf8,#2dd4bf);
+                     -webkit-background-clip:text;-webkit-text-fill-color:transparent;">
+                     AQI EWS Account</div>
+                <div style="font-size:.75rem;color:#4b5a72;margin-top:.3rem;">
+                    Early Warning System · Indore, Madhya Pradesh</div>
+            </div>""", unsafe_allow_html=True)
+
+        # Mode tabs
+        mc1, mc2 = st.columns(2)
+        with mc1:
+            if st.button("🔑 Sign In", key="modal_tab_login", use_container_width=True,
+                         type="primary" if st.session_state.login_mode == "login" else "secondary"):
+                st.session_state.login_mode = "login"; st.rerun()
+        with mc2:
+            if st.button("📝 Register", key="modal_tab_reg", use_container_width=True,
+                         type="primary" if st.session_state.login_mode == "register" else "secondary"):
+                st.session_state.login_mode = "register"; st.rerun()
+
+        st.markdown("<div style='height:.4rem'></div>", unsafe_allow_html=True)
+
+        # SIGN IN
+        if st.session_state.login_mode == "login":
+            with st.form("modal_login_form"):
+                st.markdown("<div style='font-size:.9rem;font-weight:600;margin-bottom:.7rem;'>Welcome back</div>",
+                            unsafe_allow_html=True)
+                contact  = st.text_input("Email or Mobile Number",
+                                         placeholder="yourname@email.com  or  9876543210",
+                                         key="ml_contact")
+                password = st.text_input("Password", type="password",
+                                         placeholder="Your password", key="ml_password")
+                submitted = st.form_submit_button("Sign In →", use_container_width=True)
+
+            if submitted:
+                if not contact.strip() or not password.strip():
+                    st.markdown('<div class="err-box">⚠️ Please fill in all fields.</div>',
                                 unsafe_allow_html=True)
+                else:
+                    with st.spinner("Signing in…"):
+                        if backend_login(contact.strip(), password):
+                            st.session_state.show_login_modal   = False
+                            st.session_state.notify_after_login = False
+                            st.rerun()
 
-        with st.form("modal_register_form"):
-            st.markdown("<div style='font-size:.93rem;font-weight:600;margin-bottom:.9rem;'>Create account</div>",
+            st.markdown("""
+            <div style='text-align:center;margin-top:.7rem;font-size:.75rem;color:#4b5a72;'>
+                New to AQI-EWS? Click <b style="color:#38bdf8;">Register</b> above.
+            </div>""", unsafe_allow_html=True)
+
+        # REGISTER
+        else:
+            st.markdown("<div style='font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;"
+                        "color:#4b5a72;margin:.2rem 0 .4rem 0;'>📍 Detect Your Location (optional)</div>",
                         unsafe_allow_html=True)
-            full_name   = st.text_input("Full Name", placeholder="e.g. Ravi Sharma", key="mr_name")
-            contact     = st.text_input("Email or Mobile Number",
-                                        placeholder="yourname@email.com  or  9876543210", key="mr_contact")
-            rp1, rp2    = st.columns(2)
-            with rp1:
-                password = st.text_input("Password", type="password", placeholder="Min. 6 chars", key="mr_pw")
-            with rp2:
-                confirm  = st.text_input("Confirm", type="password", placeholder="Re-enter", key="mr_pw2")
-            manual_addr = st.text_input(
-                "Address",
-                value=st.session_state.gps_address,
-                placeholder="42 MG Road, Vijay Nagar, Indore, MP",
-                key="mr_addr",
-            )
-            agree       = st.checkbox("I agree to the Terms of Service and Privacy Policy", key="mr_agree")
-            submitted   = st.form_submit_button("Create Account →", use_container_width=True)
-
-        if submitted:
-            errors = []
-            if not full_name.strip():                                    errors.append("Full name is required.")
-            if not contact.strip():                                      errors.append("Email or phone is required.")
-            elif not valid_email(contact) and not valid_phone(contact):  errors.append("Enter a valid email or 10-digit Indian mobile number.")
-            if len(password) < 6:                                        errors.append("Password must be at least 6 characters.")
-            if password != confirm:                                       errors.append("Passwords do not match.")
-            if not agree:                                                 errors.append("Please accept the Terms of Service.")
-            final_loc = manual_addr.strip() or st.session_state.gps_address or "Indore, MP"
-
-            if errors:
-                for e in errors:
-                    st.markdown(f'<div class="err-box">⚠️ {e}</div>', unsafe_allow_html=True)
+            if st.session_state.gps_address:
+                st.markdown(f"""<div class="loc-result success">
+                    <span>✅</span>
+                    <div>
+                        <div class="loc-addr">{st.session_state.gps_address}</div>
+                        <div class="loc-coords">🛰 {st.session_state.gps_lat},  {st.session_state.gps_lon}</div>
+                    </div></div>""", unsafe_allow_html=True)
+                if st.button("🔄 Re-detect", key="modal_redetect"):
+                    st.session_state.gps_address = ""; st.session_state.gps_lat = ""
+                    st.session_state.gps_lon = ""; st.session_state.loc_fetched = False; st.rerun()
             else:
-                with st.spinner("Creating your account…"):
-                    if backend_register(
-                        full_name.strip(), contact.strip(), password,
-                        final_loc,
-                        st.session_state.gps_lat, st.session_state.gps_lon,
-                    ):
-                        st.session_state.show_login_modal   = False
-                        st.session_state.notify_after_login = False
+                geo_result = components.html(GEO_COMPONENT, height=115, scrolling=False)
+                if geo_result and isinstance(geo_result, dict):
+                    status  = geo_result.get("status","")
+                    address = geo_result.get("address","").strip()
+                    if status == "success" and address and not st.session_state.loc_fetched:
+                        st.session_state.gps_address = address
+                        st.session_state.gps_lat     = str(geo_result.get("lat",""))
+                        st.session_state.gps_lon     = str(geo_result.get("lon",""))
+                        st.session_state.loc_fetched = True
                         st.rerun()
+                    elif status == "denied":
+                        st.markdown('<div class="loc-result error">❌ &nbsp; Permission denied. Enter address manually below.</div>',
+                                    unsafe_allow_html=True)
 
-    st.markdown("</div>", unsafe_allow_html=True)
+            with st.form("modal_register_form"):
+                st.markdown("<div style='font-size:.9rem;font-weight:600;margin-bottom:.7rem;'>Create account</div>",
+                            unsafe_allow_html=True)
+                full_name   = st.text_input("Full Name", placeholder="e.g. Ravi Sharma", key="mr_name")
+                contact     = st.text_input("Email or Mobile Number",
+                                            placeholder="yourname@email.com  or  9876543210", key="mr_contact")
+                rp1, rp2    = st.columns(2)
+                with rp1:
+                    password = st.text_input("Password", type="password", placeholder="Min. 6 chars", key="mr_pw")
+                with rp2:
+                    confirm  = st.text_input("Confirm", type="password", placeholder="Re-enter", key="mr_pw2")
+                manual_addr = st.text_input(
+                    "Address",
+                    value=st.session_state.gps_address,
+                    placeholder="42 MG Road, Vijay Nagar, Indore, MP",
+                    key="mr_addr",
+                )
+                agree       = st.checkbox("I agree to the Terms of Service and Privacy Policy", key="mr_agree")
+                submitted   = st.form_submit_button("Create Account →", use_container_width=True)
+
+            if submitted:
+                errors = []
+                if not full_name.strip():                                    errors.append("Full name is required.")
+                if not contact.strip():                                      errors.append("Email or phone is required.")
+                elif not valid_email(contact) and not valid_phone(contact):  errors.append("Enter a valid email or 10-digit Indian mobile number.")
+                if len(password) < 6:                                        errors.append("Password must be at least 6 characters.")
+                if password != confirm:                                       errors.append("Passwords do not match.")
+                if not agree:                                                 errors.append("Please accept the Terms of Service.")
+                final_loc = manual_addr.strip() or st.session_state.gps_address or "Indore, MP"
+
+                if errors:
+                    for e in errors:
+                        st.markdown(f'<div class="err-box">⚠️ {e}</div>', unsafe_allow_html=True)
+                else:
+                    with st.spinner("Creating your account…"):
+                        if backend_register(
+                            full_name.strip(), contact.strip(), password,
+                            final_loc,
+                            st.session_state.gps_lat, st.session_state.gps_lon,
+                        ):
+                            st.session_state.show_login_modal   = False
+                            st.session_state.notify_after_login = False
+                            st.rerun()
+
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ── Render modal (replaces dashboard) if flag is set ─────────────────────────
@@ -1157,9 +1170,16 @@ with tab3:
     fig_p.add_hline(y=threshold, line_dash="dot", line_color="#fc0a0a", line_width=1.5,
                     annotation_text=f"⚠ Threshold {threshold}",
                     annotation_position="top right", annotation_font_color="#ffffff")
-    for lo, hi, fc in [(0,50,"rgba(74,222,128,.04)"),(50,200,"rgba(251,191,36,.03)"),(200,500,"rgba(248,113,113,.03)")]:
+    for lo, hi, fc in [(0,50,"rgba(74,222,128,.04)"),(50,100,"rgba(163,230,53,.03)"),(100,200,"rgba(251,191,36,.03)"),(200,300,"rgba(248,113,113,.03)")]:
         fig_p.add_hrect(y0=lo, y1=hi, fillcolor=fc, line_width=0)
-    fig_p.update_layout(**PLOTLY_BASE, height=360, yaxis_title="AQI Index", showlegend=False)
+    _pred_layout = {**PLOTLY_BASE,
+        "height": 380, "showlegend": False,
+        "yaxis": dict(range=[0, 300], dtick=50, gridcolor="rgba(148,163,184,.08)",
+                      gridwidth=1, zerolinecolor="#1a2540", showline=False, title="AQI Index"),
+        "xaxis": dict(gridcolor="rgba(148,163,184,.06)", gridwidth=1,
+                      zerolinecolor="#1a2540", showline=False),
+    }
+    fig_p.update_layout(**_pred_layout)
     st.plotly_chart(fig_p, use_container_width=True)
 
     exc     = int((pred_df["aqi"] > threshold).sum())
@@ -1261,30 +1281,75 @@ if not st.session_state.get("authenticated"):
     <style>
     .fab-notify {
         position:fixed; bottom:28px; right:28px; z-index:99999;
-        display:inline-flex; align-items:center; gap:8px;
-        background:linear-gradient(135deg, #fbbf24, #f59e0b);
+        display:inline-flex; align-items:center; gap:10px;
+        background:linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%);
         color:#1a0f00 !important; font-family:'DM Sans',sans-serif;
-        font-size:15px; font-weight:700;
-        padding:12px 22px; border:none; border-radius:50px;
+        font-size:14px; font-weight:700; letter-spacing:.02em;
+        padding:13px 24px 13px 20px; border:none; border-radius:50px;
         cursor:pointer; text-decoration:none !important;
-        box-shadow: 0 4px 20px rgba(251,191,36,.35);
-        transition: all .25s ease;
-        animation: fab-pulse 2.5s infinite;
+        box-shadow: 0 4px 24px rgba(251,191,36,.4), 0 1px 3px rgba(0,0,0,.2);
+        transition: all .3s cubic-bezier(.4,0,.2,1);
+        animation: fab-entrance .5s cubic-bezier(.34,1.56,.64,1) both;
+        overflow:hidden;
     }
+    .fab-notify::before {
+        content:''; position:absolute; top:0; left:-100%; width:100%; height:100%;
+        background:linear-gradient(90deg, transparent, rgba(255,255,255,.25), transparent);
+        transition: left .6s ease;
+    }
+    .fab-notify:hover::before { left:100%; }
     .fab-notify:hover {
-        transform:translateY(-3px) scale(1.04);
-        box-shadow: 0 8px 30px rgba(251,191,36,.5), 0 0 20px rgba(251,191,36,.3);
-        background:linear-gradient(135deg, #fcd34d, #fbbf24);
+        transform:translateY(-4px) scale(1.05);
+        box-shadow: 0 10px 35px rgba(251,191,36,.5), 0 0 25px rgba(251,191,36,.25);
+        background:linear-gradient(135deg, #fcd34d 0%, #fbbf24 50%, #f59e0b 100%);
         color:#1a0f00 !important; text-decoration:none !important;
     }
-    .fab-notify:active { transform:translateY(-1px) scale(1); }
-    @keyframes fab-pulse {
-        0%   { box-shadow: 0 4px 20px rgba(251,191,36,.35), 0 0 0 0 rgba(251,191,36,.4); }
-        70%  { box-shadow: 0 4px 20px rgba(251,191,36,.35), 0 0 0 12px rgba(251,191,36,0); }
-        100% { box-shadow: 0 4px 20px rgba(251,191,36,.35), 0 0 0 0 rgba(251,191,36,0); }
+    .fab-notify:active {
+        transform:translateY(-1px) scale(.98);
+        box-shadow: 0 4px 16px rgba(251,191,36,.35);
     }
+    .fab-bell {
+        font-size:17px; display:inline-block;
+        animation: bell-ring 3s ease-in-out infinite;
+        transform-origin: top center;
+    }
+    .fab-text {
+        position:relative; top:0.5px;
+    }
+    .fab-dot {
+        width:7px; height:7px; border-radius:50%;
+        background:#dc2626; border:1.5px solid #1a0f00;
+        position:absolute; top:10px; left:24px;
+        animation: dot-blink 2s infinite;
+    }
+    @keyframes fab-entrance {
+        from { opacity:0; transform:translateY(30px) scale(.8); }
+        to   { opacity:1; transform:translateY(0) scale(1); }
+    }
+    @keyframes bell-ring {
+        0%   { transform:rotate(0); }
+        5%   { transform:rotate(14deg); }
+        10%  { transform:rotate(-13deg); }
+        15%  { transform:rotate(10deg); }
+        20%  { transform:rotate(-8deg); }
+        25%  { transform:rotate(4deg); }
+        30%  { transform:rotate(0); }
+        100% { transform:rotate(0); }
+    }
+    @keyframes dot-blink {
+        0%, 100% { opacity:1; }
+        50%      { opacity:.3; }
+    }
+    @keyframes fab-pulse {
+        0%   { box-shadow: 0 4px 24px rgba(251,191,36,.4), 0 0 0 0 rgba(251,191,36,.35); }
+        70%  { box-shadow: 0 4px 24px rgba(251,191,36,.4), 0 0 0 14px rgba(251,191,36,0); }
+        100% { box-shadow: 0 4px 24px rgba(251,191,36,.4), 0 0 0 0 rgba(251,191,36,0); }
+    }
+    .fab-notify { animation: fab-entrance .5s cubic-bezier(.34,1.56,.64,1) both, fab-pulse 2.5s 1s infinite; }
     </style>
     <a href="?get_notification=true" class="fab-notify">
-        🔔 Get Notification
+        <span class="fab-dot"></span>
+        <span class="fab-bell">🔔</span>
+        <span class="fab-text">Get Notification</span>
     </a>
     """, unsafe_allow_html=True)
