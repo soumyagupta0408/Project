@@ -156,6 +156,12 @@ def backend_login(contact: str, password: str) -> bool:
         st.session_state.user_name     = data.get("user_name", "")
         st.session_state.user_email    = data.get("user_email") or data.get("user_phone", "")
         st.session_state.user_location = data.get("user_location") or "Indore, MP"
+        # Set GPS coords from user's registered location
+        if data.get("user_latitude") and data.get("user_longitude"):
+            st.session_state.gps_lat     = str(data["user_latitude"])
+            st.session_state.gps_lon     = str(data["user_longitude"])
+            st.session_state.gps_address = data.get("user_location") or ""
+            st.session_state.loc_fetched = True
         return True
     except requests.HTTPError as e:
         if e.response is not None and e.response.status_code == 401:
@@ -180,6 +186,14 @@ def backend_register(full_name, contact, password,
         st.session_state.user_email    = data.get("user_email") or data.get("user_phone", "")
         st.session_state.user_location = (data.get("user_location")
                                           or address or "Indore, MP")
+        # Set GPS coords from registration location
+        user_lat = data.get("user_latitude") or latitude
+        user_lon = data.get("user_longitude") or longitude
+        if user_lat and user_lon:
+            st.session_state.gps_lat     = str(user_lat)
+            st.session_state.gps_lon     = str(user_lon)
+            st.session_state.gps_address = address or data.get("user_location") or ""
+            st.session_state.loc_fetched = True
         return True
     except requests.HTTPError as e:
         if e.response is not None:

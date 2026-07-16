@@ -664,13 +664,35 @@ def load_alerts():
 # ─── Load all data ────────────────────────────────────────────────────────────
 poll, live_aqi, is_live, threshold, data_source = load_live_aqi()
 
-# Override live_aqi with average of ALL stations for a city-wide value
+# Select AQI from nearest station to user's GPS location (not average)
 _all_stations, _primary_aqi, _stations_ok = load_all_stations()
 if _stations_ok and _all_stations:
-    _station_aqis = [s.get("aqi") for s in _all_stations if s.get("aqi") is not None]
-    if _station_aqis:
-        live_aqi = round(sum(_station_aqis) / len(_station_aqis), 1)
-        data_source = f"Avg of {len(_station_aqis)} CPCB stations"
+    user_lat = st.session_state.get("gps_lat", "")
+    user_lon = st.session_state.get("gps_lon", "")
+
+    if user_lat and user_lon:
+        # Find nearest station using haversine-like distance
+        import math
+        def _dist(s):
+            try:
+                dlat = math.radians(float(s["lat"]) - float(user_lat))
+                dlon = math.radians(float(s["lon"]) - float(user_lon))
+                a = math.sin(dlat/2)**2 + math.cos(math.radians(float(user_lat))) * math.cos(math.radians(float(s["lat"]))) * math.sin(dlon/2)**2
+                return 6371 * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+            except (ValueError, TypeError):
+                return 9999
+
+        nearest = min(_all_stations, key=_dist)
+        if nearest.get("aqi") is not None:
+            live_aqi = float(nearest["aqi"])
+            data_source = f"{nearest.get('short_name', nearest.get('name', 'Unknown'))} (nearest)"
+    else:
+        # No GPS — use primary station
+        for s in _all_stations:
+            if s.get("is_primary") and s.get("aqi") is not None:
+                live_aqi = float(s["aqi"])
+                data_source = f"{s.get('short_name', 'Primary')} (default)"
+                break
 
 dom_poll = max(poll, key=poll.get) if poll else "PM2.5"
 cat, col_hex, banner_cls = aqi_info(live_aqi)
