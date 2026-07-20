@@ -5,6 +5,7 @@ from functools import lru_cache
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
+    DATABASE_URL: str = ""  # Set this on Render via environment
     DB_HOST: str = "localhost"
     DB_PORT: int = 3306
     DB_NAME: str = "aqi_sentinel"
@@ -20,9 +21,10 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     CORS_ORIGINS: str = "http://localhost:8501,http://127.0.0.1:8501"
   
-
-    @property
-    def DATABASE_URL(self) -> str:
+    def get_database_url(self) -> str:
+        """Return DATABASE_URL if set, otherwise build from components."""
+        if self.DATABASE_URL:
+            return self.DATABASE_URL
         return (
             f"mysql+pymysql://{self.DB_USER}:{self.DB_PASSWORD}"
             f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
@@ -36,4 +38,3 @@ class Settings(BaseSettings):
 @lru_cache()
 def get_settings() -> Settings:
     return Settings()
-
