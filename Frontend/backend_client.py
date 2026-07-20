@@ -3,10 +3,11 @@ backend_client.py
 Drop this file into your Streamlit project root.
 """
 
+import os
 import requests
 import streamlit as st
 
-BACKEND_URL = "http://localhost:8000"   # change to production URL when deployed
+BACKEND_URL = os.getenv("API_URL", "http://localhost:8000")   # change to production URL when deployed
 
 
 class BackendClient:
