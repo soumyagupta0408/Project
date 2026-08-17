@@ -298,18 +298,27 @@ async def _fetch_from_cpcb(city: str) -> list[dict] | None:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _cache_readings(db: Session, city: str, records: list[dict]) -> None:
-    now = datetime.now(timezone.utc)
+    # MySQL stores naive datetimes — use naive UTC consistently
+    now = datetime.utcnow()
     for rec in records:
         pollutant_id = str(rec.get("pollutant_id", "")).strip().upper()
         if not pollutant_id:
             continue
 
+        # Parse the station's reported timestamp
         recorded_at = now
         raw_ts = str(rec.get("last_update", "")).strip()
         if raw_ts:
             for fmt in ("%d-%m-%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S"):
                 try:
-                    recorded_at = datetime.strptime(raw_ts, fmt).replace(tzinfo=timezone.utc)
+                    parsed = datetime.strptime(raw_ts, fmt)
+                    # If the station timestamp is older than 24 hours,
+                    # use current time so the reading passes freshness filters.
+                    # WAQI stations can report stale timestamps even when
+                    # the data is still the latest available.
+                    if (now - parsed) < timedelta(hours=24):
+                        recorded_at = parsed
+                    # else: keep recorded_at = now
                     break
                 except ValueError:
                     continue
@@ -326,7 +335,8 @@ def _cache_readings(db: Session, city: str, records: list[dict]) -> None:
             fetched_at=now,
         )
         try:
-            db.merge(reading)
+            db.add(reading)
+            db.flush()
         except Exception:
             db.rollback()
 
@@ -336,30 +346,44 @@ def _cache_readings(db: Session, city: str, records: list[dict]) -> None:
         db.rollback()
 
 
+
 def _get_cached_readings(db: Session, city: str) -> list[AQIReading]:
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
-    return (
-        db.query(AQIReading)
-        .filter(
-            AQIReading.city == city.title(),
-            AQIReading.recorded_at >= cutoff,
+    try:
+        cutoff = datetime.utcnow() - timedelta(hours=24)
+        return (
+            db.query(AQIReading)
+            .filter(
+                AQIReading.city == city.title(),
+                AQIReading.fetched_at >= cutoff,
+            )
+            .order_by(desc(AQIReading.fetched_at))
+            .all()
         )
-        .order_by(desc(AQIReading.recorded_at))
-        .all()
-    )
+    except Exception:
+        db.rollback()
+        return []
 
 
 def _cache_is_fresh(db: Session, city: str) -> bool:
-    latest = (
-        db.query(AQIReading.fetched_at)
-        .filter(AQIReading.city == city.title())
-        .order_by(desc(AQIReading.fetched_at))
-        .first()
-    )
-    if not latest:
+    try:
+        latest = (
+            db.query(AQIReading.fetched_at)
+            .filter(AQIReading.city == city.title())
+            .order_by(desc(AQIReading.fetched_at))
+            .first()
+        )
+        if not latest:
+            return False
+        # MySQL returns naive datetimes — compare with naive UTC
+        fetched = latest.fetched_at
+        if fetched.tzinfo is not None:
+            fetched = fetched.replace(tzinfo=None)
+        age = datetime.utcnow() - fetched
+        return age < timedelta(minutes=CACHE_TTL_MINUTES)
+    except Exception:
+        db.rollback()
         return False
-    age = datetime.now(timezone.utc) - latest.fetched_at.replace(tzinfo=timezone.utc)
-    return age < timedelta(minutes=CACHE_TTL_MINUTES)
+
 
 
 # ══════════════════════════════════════════════════════════════════════════════
