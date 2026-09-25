@@ -3,6 +3,7 @@ app/main.py
 FastAPI application factory — AQI Sentinel backend.
 """
 from fastapi import FastAPI
+
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
@@ -16,10 +17,7 @@ from app.api.routes import auth, aqi, users
 settings = get_settings()
 
 # ── Create tables (dev convenience; use Alembic in production) ────────────────
-try:
-    Base.metadata.create_all(bind=engine)
-except Exception as e:
-    print(f"Warning: Could not create DB tables on startup: {e}")
+Base.metadata.create_all(bind=engine)
 
 # ── App ───────────────────────────────────────────────────────────────────────
 app = FastAPI(
@@ -48,3 +46,7 @@ app.include_router(users.router)
 @app.get("/health", tags=["health"])
 def health_check():
     return {"status": "ok", "app": "AQI Sentinel"}
+
+@app.get("/")
+def home():
+    return {"message": "API is working 🚀"}

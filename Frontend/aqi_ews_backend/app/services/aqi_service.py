@@ -298,27 +298,18 @@ async def _fetch_from_cpcb(city: str) -> list[dict] | None:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _cache_readings(db: Session, city: str, records: list[dict]) -> None:
-    # MySQL stores naive datetimes — use naive UTC consistently
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     for rec in records:
         pollutant_id = str(rec.get("pollutant_id", "")).strip().upper()
         if not pollutant_id:
             continue
 
-        # Parse the station's reported timestamp
         recorded_at = now
         raw_ts = str(rec.get("last_update", "")).strip()
         if raw_ts:
             for fmt in ("%d-%m-%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S"):
                 try:
-                    parsed = datetime.strptime(raw_ts, fmt)
-                    # If the station timestamp is older than 24 hours,
-                    # use current time so the reading passes freshness filters.
-                    # WAQI stations can report stale timestamps even when
-                    # the data is still the latest available.
-                    if (now - parsed) < timedelta(hours=24):
-                        recorded_at = parsed
-                    # else: keep recorded_at = now
+                    recorded_at = datetime.strptime(raw_ts, fmt).replace(tzinfo=timezone.utc)
                     break
                 except ValueError:
                     continue
@@ -335,8 +326,7 @@ def _cache_readings(db: Session, city: str, records: list[dict]) -> None:
             fetched_at=now,
         )
         try:
-            db.add(reading)
-            db.flush()
+            db.merge(reading)
         except Exception:
             db.rollback()
 
@@ -344,7 +334,6 @@ def _cache_readings(db: Session, city: str, records: list[dict]) -> None:
         db.commit()
     except Exception:
         db.rollback()
-
 
 
 def _get_cached_readings(db: Session, city: str) -> list[AQIReading]:
@@ -374,7 +363,6 @@ def _cache_is_fresh(db: Session, city: str) -> bool:
         )
         if not latest:
             return False
-        # MySQL returns naive datetimes — compare with naive UTC
         fetched = latest.fetched_at
         if fetched.tzinfo is not None:
             fetched = fetched.replace(tzinfo=None)
