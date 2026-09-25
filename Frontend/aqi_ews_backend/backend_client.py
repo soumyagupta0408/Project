@@ -3,29 +3,16 @@ backend_client.py
 Drop this file into your Streamlit project root.
 """
 
-import os
 import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 import streamlit as st
 
-BACKEND_URL = os.getenv("API_URL","http://localhost:8000")   # change to production URL when deployed
+BACKEND_URL = "http://localhost:8000"   # change to production URL when deployed
 
 
 class BackendClient:
     def __init__(self, token: str | None = None):
         self.base  = BACKEND_URL.rstrip("/")
         self.token = token
-        self.session = requests.Session()
-        retries = Retry(
-            total=3,
-            backoff_factor=0.3,
-            status_forcelist=[500, 502, 503, 504],
-            raise_on_status=False,
-        )
-        adapter = HTTPAdapter(max_retries=retries)
-        self.session.mount("http://", adapter)
-        self.session.mount("https://", adapter)
 
     def _auth_headers(self) -> dict:
         """Headers WITH Bearer token — for protected endpoints."""
@@ -33,12 +20,11 @@ class BackendClient:
             return {"Authorization": f"Bearer {self.token}"}
         return {}
 
-
     # ── Auth ──────────────────────────────────────────────────────────────────
 
     def register(self, full_name, contact, password,
                  address="", latitude="", longitude=""):
-        r = self.session.post(
+        r = requests.post(
             f"{self.base}/api/auth/register",
             json={
                 "full_name":  full_name,
@@ -54,7 +40,7 @@ class BackendClient:
         return r.json()
 
     def login(self, contact, password):
-        r = self.session.post(
+        r = requests.post(
             f"{self.base}/api/auth/login",
             json={"contact": contact, "password": password},
             timeout=10,
@@ -74,10 +60,10 @@ class BackendClient:
         url = f"{self.base}/api/aqi/{city}"
         try:
             # Attempt 1: no auth header (works if route is public)
-            r = self.session.get(url, timeout=12)
+            r = requests.get(url, timeout=12)
             if r.status_code == 401 or r.status_code == 403:
                 # Route requires auth — retry with token
-                r = self.session.get(url, headers=self._auth_headers(), timeout=12)
+                r = requests.get(url, headers=self._auth_headers(), timeout=12)
             r.raise_for_status()
             return r.json()
         except Exception:
@@ -95,32 +81,20 @@ class BackendClient:
         if pollutant:
             params["pollutant"] = pollutant
         try:
-            r = self.session.get(url, params=params, timeout=10)
+            r = requests.get(url, params=params, timeout=10)
             if r.status_code == 401 or r.status_code == 403:
-                r = self.session.get(url, headers=self._auth_headers(),
+                r = requests.get(url, headers=self._auth_headers(),
                                  params=params, timeout=10)
             r.raise_for_status()
             return r.json()
         except Exception:
             return []
 
-    # ── All Stations  (PUBLIC — no auth required) ──────────────────────────────
-
-    def get_all_stations(self) -> dict | None:
-        """Fetch real AQI for all CPCB monitoring stations in Indore."""
-        url = f"{self.base}/api/aqi/indore/stations"
-        try:
-            r = self.session.get(url, timeout=15)
-            r.raise_for_status()
-            return r.json()
-        except Exception:
-            return None
-
     # ── Alerts  (PROTECTED — always needs auth) ───────────────────────────────
 
     def get_alerts(self, limit: int = 50) -> list[dict]:
         try:
-            r = self.session.get(
+            r = requests.get(
                 f"{self.base}/api/users/me/alerts",
                 headers=self._auth_headers(),
                 params={"limit": limit},
@@ -133,7 +107,7 @@ class BackendClient:
 
     def log_alert(self, station, pollutant, aqi_value) -> dict | None:
         try:
-            r = self.session.post(
+            r = requests.post(
                 f"{self.base}/api/users/me/alerts",
                 headers=self._auth_headers(),
                 json={"station": station, "pollutant": pollutant,
@@ -147,7 +121,7 @@ class BackendClient:
 
     def update_threshold(self, threshold: int) -> dict | None:
         try:
-            r = self.session.patch(
+            r = requests.patch(
                 f"{self.base}/api/users/me/threshold",
                 headers=self._auth_headers(),
                 json={"threshold": threshold},
@@ -156,8 +130,6 @@ class BackendClient:
             r.raise_for_status()
             return r.json()
         except Exception:
-            return None
-
             return None
 
 
@@ -172,12 +144,6 @@ def backend_login(contact: str, password: str) -> bool:
         st.session_state.user_name     = data.get("user_name", "")
         st.session_state.user_email    = data.get("user_email") or data.get("user_phone", "")
         st.session_state.user_location = data.get("user_location") or "Indore, MP"
-        # Set GPS coords from user's registered location
-        if data.get("user_latitude") and data.get("user_longitude"):
-            st.session_state.gps_lat     = str(data["user_latitude"])
-            st.session_state.gps_lon     = str(data["user_longitude"])
-            st.session_state.gps_address = data.get("user_location") or ""
-            st.session_state.loc_fetched = True
         return True
     except requests.HTTPError as e:
         if e.response is not None and e.response.status_code == 401:
@@ -202,14 +168,6 @@ def backend_register(full_name, contact, password,
         st.session_state.user_email    = data.get("user_email") or data.get("user_phone", "")
         st.session_state.user_location = (data.get("user_location")
                                           or address or "Indore, MP")
-        # Set GPS coords from registration location
-        user_lat = data.get("user_latitude") or latitude
-        user_lon = data.get("user_longitude") or longitude
-        if user_lat and user_lon:
-            st.session_state.gps_lat     = str(user_lat)
-            st.session_state.gps_lon     = str(user_lon)
-            st.session_state.gps_address = address or data.get("user_location") or ""
-            st.session_state.loc_fetched = True
         return True
     except requests.HTTPError as e:
         if e.response is not None:

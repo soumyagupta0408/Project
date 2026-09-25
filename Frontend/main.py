@@ -16,10 +16,7 @@ from app.api.routes import auth, aqi, users
 settings = get_settings()
 
 # ── Create tables (dev convenience; use Alembic in production) ────────────────
-try:
-    Base.metadata.create_all(bind=engine)
-except Exception as e:
-    print(f"Warning: Could not create DB tables on startup: {e}")
+Base.metadata.create_all(bind=engine)
 
 # ── App ───────────────────────────────────────────────────────────────────────
 app = FastAPI(
