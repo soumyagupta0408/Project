@@ -9,7 +9,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import streamlit as st
 
-BACKEND_URL = os.getenv("API_URL","http://localhost:8000")   # change to production URL when deployed
+BACKEND_URL = os.getenv("API_URL", "http://localhost:8000")
 
 
 class BackendClient:
@@ -158,7 +158,6 @@ class BackendClient:
         except Exception:
             return None
 
-            return None
 
 
 # ── Streamlit-aware wrappers ──────────────────────────────────────────────────
