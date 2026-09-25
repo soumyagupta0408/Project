@@ -1,3 +1,4 @@
+
 """
 backend_client.py
 Drop this file into your Streamlit project root.
@@ -9,20 +10,23 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import streamlit as st
 
-BACKEND_URL = os.getenv("API_URL","http://localhost:8000")   # change to production URL when deployed
+
+BACKEND_URL = os.getenv("API_URL", "http://localhost:8000")
 
 
 class BackendClient:
     def __init__(self, token: str | None = None):
-        self.base  = BACKEND_URL.rstrip("/")
+        self.base = BACKEND_URL.rstrip("/")
         self.token = token
         self.session = requests.Session()
+
         retries = Retry(
             total=3,
             backoff_factor=0.3,
             status_forcelist=[500, 502, 503, 504],
             raise_on_status=False,
         )
+
         adapter = HTTPAdapter(max_retries=retries)
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
@@ -33,36 +37,47 @@ class BackendClient:
             return {"Authorization": f"Bearer {self.token}"}
         return {}
 
-
     # ── Auth ──────────────────────────────────────────────────────────────────
 
-    def register(self, full_name, contact, password,
-                 address="", latitude="", longitude=""):
+    def register(
+        self,
+        full_name,
+        contact,
+        password,
+        address="",
+        latitude="",
+        longitude="",
+    ):
         r = self.session.post(
             f"{self.base}/api/auth/register",
             json={
-                "full_name":  full_name,
-                "contact":    contact,
-                "password":   password,
-                "address":    address or None,
-                "latitude":   latitude or None,
-                "longitude":  longitude or None,
+                "full_name": full_name,
+                "contact": contact,
+                "password": password,
+                "address": address or None,
+                "latitude": latitude or None,
+                "longitude": longitude or None,
             },
             timeout=10,
         )
+
         r.raise_for_status()
         return r.json()
 
     def login(self, contact, password):
         r = self.session.post(
             f"{self.base}/api/auth/login",
-            json={"contact": contact, "password": password},
+            json={
+                "contact": contact,
+                "password": password,
+            },
             timeout=10,
         )
+
         r.raise_for_status()
         return r.json()
 
-    # ── AQI  (PUBLIC — no auth required) ─────────────────────────────────────
+    # ── AQI (PUBLIC — no auth required) ───────────────────────────────────────
 
     def get_aqi(self, city: str = "indore") -> dict | None:
         """
@@ -71,52 +86,82 @@ class BackendClient:
         Falls back to authenticated request if the route requires a token.
         Returns None only if the backend is unreachable or returns an error.
         """
+
         url = f"{self.base}/api/aqi/{city}"
+
         try:
-            # Attempt 1: no auth header (works if route is public)
+            # Attempt 1: no auth header
             r = self.session.get(url, timeout=12)
+
             if r.status_code == 401 or r.status_code == 403:
                 # Route requires auth — retry with token
-                r = self.session.get(url, headers=self._auth_headers(), timeout=12)
+                r = self.session.get(
+                    url,
+                    headers=self._auth_headers(),
+                    timeout=12,
+                )
+
             r.raise_for_status()
             return r.json()
+
         except Exception:
             return None
 
-    def get_aqi_history(self, city: str = "indore",
-                        pollutant: str | None = None,
-                        limit: int = 100) -> list[dict]:
+    def get_aqi_history(
+        self,
+        city: str = "indore",
+        pollutant: str | None = None,
+        limit: int = 100,
+    ) -> list[dict]:
+
         """
         Fetch historical AQI readings.
         Same public-first, auth-fallback strategy as get_aqi.
         """
-        url    = f"{self.base}/api/aqi/{city}/history"
+
+        url = f"{self.base}/api/aqi/{city}/history"
         params = {"limit": limit}
+
         if pollutant:
             params["pollutant"] = pollutant
+
         try:
-            r = self.session.get(url, params=params, timeout=10)
+            r = self.session.get(
+                url,
+                params=params,
+                timeout=10,
+            )
+
             if r.status_code == 401 or r.status_code == 403:
-                r = self.session.get(url, headers=self._auth_headers(),
-                                 params=params, timeout=10)
+                r = self.session.get(
+                    url,
+                    headers=self._auth_headers(),
+                    params=params,
+                    timeout=10,
+                )
+
             r.raise_for_status()
             return r.json()
+
         except Exception:
             return []
 
-    # ── All Stations  (PUBLIC — no auth required) ──────────────────────────────
+    # ── All Stations (PUBLIC — no auth required) ──────────────────────────────
 
     def get_all_stations(self) -> dict | None:
         """Fetch real AQI for all CPCB monitoring stations in Indore."""
+
         url = f"{self.base}/api/aqi/indore/stations"
+
         try:
             r = self.session.get(url, timeout=15)
             r.raise_for_status()
             return r.json()
+
         except Exception:
             return None
 
-    # ── Alerts  (PROTECTED — always needs auth) ───────────────────────────────
+    # ── Alerts (PROTECTED — always needs auth) ────────────────────────────────
 
     def get_alerts(self, limit: int = 50) -> list[dict]:
         try:
@@ -126,26 +171,43 @@ class BackendClient:
                 params={"limit": limit},
                 timeout=10,
             )
+
             r.raise_for_status()
             return r.json()
+
         except Exception:
             return []
 
-    def log_alert(self, station, pollutant, aqi_value) -> dict | None:
+    def log_alert(
+        self,
+        station,
+        pollutant,
+        aqi_value,
+    ) -> dict | None:
+
         try:
             r = self.session.post(
                 f"{self.base}/api/users/me/alerts",
                 headers=self._auth_headers(),
-                json={"station": station, "pollutant": pollutant,
-                      "aqi_value": aqi_value},
+                json={
+                    "station": station,
+                    "pollutant": pollutant,
+                    "aqi_value": aqi_value,
+                },
                 timeout=10,
             )
+
             r.raise_for_status()
             return r.json()
+
         except Exception:
             return None
 
-    def update_threshold(self, threshold: int) -> dict | None:
+    def update_threshold(
+        self,
+        threshold: int,
+    ) -> dict | None:
+
         try:
             r = self.session.patch(
                 f"{self.base}/api/users/me/threshold",
@@ -153,71 +215,198 @@ class BackendClient:
                 json={"threshold": threshold},
                 timeout=10,
             )
+
             r.raise_for_status()
             return r.json()
-        except Exception:
-            return None
 
+        except Exception:
             return None
 
 
 # ── Streamlit-aware wrappers ──────────────────────────────────────────────────
 
-def backend_login(contact: str, password: str) -> bool:
+def backend_login(
+    contact: str,
+    password: str,
+) -> bool:
+
     client = BackendClient()
+
     try:
         data = client.login(contact, password)
-        st.session_state.token         = data["access_token"]
+
+        st.session_state.token = data["access_token"]
         st.session_state.authenticated = True
-        st.session_state.user_name     = data.get("user_name", "")
-        st.session_state.user_email    = data.get("user_email") or data.get("user_phone", "")
-        st.session_state.user_location = data.get("user_location") or "Indore, MP"
+        st.session_state.user_name = data.get("user_name", "")
+        st.session_state.user_email = (
+            data.get("user_email")
+            or data.get("user_phone", "")
+        )
+
+        st.session_state.user_location = (
+            data.get("user_location")
+            or "Indore, MP"
+        )
+
         # Set GPS coords from user's registered location
         if data.get("user_latitude") and data.get("user_longitude"):
-            st.session_state.gps_lat     = str(data["user_latitude"])
-            st.session_state.gps_lon     = str(data["user_longitude"])
-            st.session_state.gps_address = data.get("user_location") or ""
+            st.session_state.gps_lat = str(data["user_latitude"])
+            st.session_state.gps_lon = str(data["user_longitude"])
+            st.session_state.gps_address = (
+                data.get("user_location") or ""
+            )
             st.session_state.loc_fetched = True
+
         return True
+
     except requests.HTTPError as e:
+
         if e.response is not None and e.response.status_code == 401:
-            st.error("Invalid credentials. Please check your email/phone and password.")
+            st.error(
+                "Invalid credentials. Please check your email/phone and password."
+            )
         else:
             st.error(f"Login failed: {e}")
+
         return False
+
     except requests.ConnectionError:
-        st.error("Cannot reach the backend. Is the FastAPI server running on localhost:8000?")
+        st.error(
+            "Cannot reach the backend. "
+            "Is the FastAPI server running on localhost:8000?"
+        )
         return False
 
 
-def backend_register(full_name, contact, password,
-                     address="", latitude="", longitude="") -> bool:
+def backend_register(
+    full_name,
+    contact,
+    password,
+    address="",
+    latitude="",
+    longitude="",
+) -> bool:
+
     client = BackendClient()
+
     try:
-        data = client.register(full_name, contact, password,
-                               address, latitude, longitude)
-        st.session_state.token         = data["access_token"]
+        data = client.register(
+            full_name,
+            contact,
+            password,
+            address,
+            latitude,
+            longitude,
+        )
+
+        st.session_state.token = data["access_token"]
         st.session_state.authenticated = True
-        st.session_state.user_name     = data.get("user_name", full_name.split()[0])
-        st.session_state.user_email    = data.get("user_email") or data.get("user_phone", "")
-        st.session_state.user_location = (data.get("user_location")
-                                          or address or "Indore, MP")
+
+        st.session_state.user_name = data.get(
+            "user_name",
+            full_name.split()[0],
+        )
+
+        st.session_state.user_email = (
+            data.get("user_email")
+            or data.get("user_phone", "")
+        )
+
+        st.session_state.user_location = (
+            data.get("user_location")
+            or address
+            or "Indore, MP"
+        )
+
         # Set GPS coords from registration location
         user_lat = data.get("user_latitude") or latitude
         user_lon = data.get("user_longitude") or longitude
+
         if user_lat and user_lon:
-            st.session_state.gps_lat     = str(user_lat)
-            st.session_state.gps_lon     = str(user_lon)
-            st.session_state.gps_address = address or data.get("user_location") or ""
+            st.session_state.gps_lat = str(user_lat)
+            st.session_state.gps_lon = str(user_lon)
+
+            st.session_state.gps_address = (
+                address
+                or data.get("user_location")
+                or ""
+            )
+
             st.session_state.loc_fetched = True
+
         return True
+
     except requests.HTTPError as e:
+
         if e.response is not None:
-            detail = e.response.json().get("detail", str(e))
-            st.error(f"Registration failed: {detail}")
+            detail = e.response.json().get(
+                "detail",
+                str(e),
+            )
+
+            st.error(
+                f"Registration failed: {detail}"
+            )
+
         else:
-            st.error(f"Registration failed: {e}")
+            st.error(
+                f"Registration failed: {e}"
+            )
+
         return False
+
     except requests.ConnectionError:
-        st.error("Cannot reach the backend. Is the FastAPI server running on localhost:8000?")
+        st.error(
+            "Cannot reach the backend. "
+            "Is the FastAPI server running on localhost:8000?"
+        )
         return False
+```
+
+### What I fixed
+
+1. **Removed Git conflict markers**
+
+   ```text
+   <<<<<<< master
+   =======
+   >>>>>>> main
+   ```
+
+2. Kept the correct line:
+
+   ```python
+   BACKEND_URL = os.getenv("API_URL", "http://localhost:8000")
+   ```
+
+3. **Removed the duplicate unreachable `return None`** from `update_threshold()`.
+
+4. Cleaned up formatting without changing the actual backend logic.
+
+### If this happened during `git pull` / merge
+
+After saving the corrected file, run:
+
+```bash
+git status
+```
+
+Then:
+
+```bash
+git add backend_client.py
+```
+
+Then:
+
+```bash
+git commit -m "Resolve merge conflict in backend_client.py"
+```
+
+And finally:
+
+```bash
+git push origin main
+```
+
+Since your Render service has **Auto Deploy → On Commit**, the push should trigger a new deployment automatically.
