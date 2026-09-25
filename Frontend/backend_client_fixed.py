@@ -5,15 +5,27 @@ Drop this file into your Streamlit project root.
 
 import os
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import streamlit as st
 
-BACKEND_URL = os.getenv("API_URL", "http://localhost:8000")   # change to production URL when deployed
+BACKEND_URL = os.getenv("API_URL", "http://localhost:8000")
 
 
 class BackendClient:
     def __init__(self, token: str | None = None):
         self.base  = BACKEND_URL.rstrip("/")
         self.token = token
+        self.session = requests.Session()
+        retries = Retry(
+            total=3,
+            backoff_factor=0.3,
+            status_forcelist=[500, 502, 503, 504],
+            raise_on_status=False,
+        )
+        adapter = HTTPAdapter(max_retries=retries)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
 
     def _auth_headers(self) -> dict:
         """Headers WITH Bearer token — for protected endpoints."""
@@ -21,11 +33,12 @@ class BackendClient:
             return {"Authorization": f"Bearer {self.token}"}
         return {}
 
+
     # ── Auth ──────────────────────────────────────────────────────────────────
 
     def register(self, full_name, contact, password,
                  address="", latitude="", longitude=""):
-        r = requests.post(
+        r = self.session.post(
             f"{self.base}/api/auth/register",
             json={
                 "full_name":  full_name,
@@ -41,7 +54,7 @@ class BackendClient:
         return r.json()
 
     def login(self, contact, password):
-        r = requests.post(
+        r = self.session.post(
             f"{self.base}/api/auth/login",
             json={"contact": contact, "password": password},
             timeout=10,
@@ -61,10 +74,10 @@ class BackendClient:
         url = f"{self.base}/api/aqi/{city}"
         try:
             # Attempt 1: no auth header (works if route is public)
-            r = requests.get(url, timeout=12)
+            r = self.session.get(url, timeout=12)
             if r.status_code == 401 or r.status_code == 403:
                 # Route requires auth — retry with token
-                r = requests.get(url, headers=self._auth_headers(), timeout=12)
+                r = self.session.get(url, headers=self._auth_headers(), timeout=12)
             r.raise_for_status()
             return r.json()
         except Exception:
@@ -82,9 +95,9 @@ class BackendClient:
         if pollutant:
             params["pollutant"] = pollutant
         try:
-            r = requests.get(url, params=params, timeout=10)
+            r = self.session.get(url, params=params, timeout=10)
             if r.status_code == 401 or r.status_code == 403:
-                r = requests.get(url, headers=self._auth_headers(),
+                r = self.session.get(url, headers=self._auth_headers(),
                                  params=params, timeout=10)
             r.raise_for_status()
             return r.json()
@@ -97,7 +110,7 @@ class BackendClient:
         """Fetch real AQI for all CPCB monitoring stations in Indore."""
         url = f"{self.base}/api/aqi/indore/stations"
         try:
-            r = requests.get(url, timeout=15)
+            r = self.session.get(url, timeout=15)
             r.raise_for_status()
             return r.json()
         except Exception:
@@ -107,7 +120,7 @@ class BackendClient:
 
     def get_alerts(self, limit: int = 50) -> list[dict]:
         try:
-            r = requests.get(
+            r = self.session.get(
                 f"{self.base}/api/users/me/alerts",
                 headers=self._auth_headers(),
                 params={"limit": limit},
@@ -120,7 +133,7 @@ class BackendClient:
 
     def log_alert(self, station, pollutant, aqi_value) -> dict | None:
         try:
-            r = requests.post(
+            r = self.session.post(
                 f"{self.base}/api/users/me/alerts",
                 headers=self._auth_headers(),
                 json={"station": station, "pollutant": pollutant,
@@ -134,7 +147,7 @@ class BackendClient:
 
     def update_threshold(self, threshold: int) -> dict | None:
         try:
-            r = requests.patch(
+            r = self.session.patch(
                 f"{self.base}/api/users/me/threshold",
                 headers=self._auth_headers(),
                 json={"threshold": threshold},
@@ -144,6 +157,7 @@ class BackendClient:
             return r.json()
         except Exception:
             return None
+
 
 
 # ── Streamlit-aware wrappers ──────────────────────────────────────────────────
